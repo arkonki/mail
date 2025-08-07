@@ -1,6 +1,5 @@
 
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
@@ -9,6 +8,13 @@ import nodemailer from 'nodemailer';
 import { simpleParser, ParsedMail } from 'mailparser';
 
 dotenv.config();
+
+// Augment the express-session module to add a 'user' property to the session data.
+declare module 'express-session' {
+  interface Session {
+    user: { email: string; pass: string; name: string; };
+  }
+}
 
 // Define Address type locally as it's not exported from mailparser
 interface Address {
@@ -32,12 +38,6 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
-
-declare module 'express-session' {
-  interface SessionData {
-    user: { email: string; pass: string; name: string; };
-  }
-}
 
 // Placeholder for settings
 let userSettings: {[email: string]: any} = {};
@@ -84,7 +84,7 @@ const findSpecialFolder = (boxes: { [name: string]: any }, folderKeywords: strin
     return null;
 }
 
-app.post('/api/login', async (req: Request, res: Response) => {
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
@@ -108,7 +108,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/me', (req: Request, res: Response) => {
+app.get('/api/me', (req, res) => {
     if (req.session.user) {
         res.status(200).json({ email: req.session.user.email, name: req.session.user.name });
     } else {
@@ -116,7 +116,7 @@ app.get('/api/me', (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/logout', (req: Request, res: Response) => {
+app.post('/api/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).send('Could not log out.');
@@ -127,14 +127,14 @@ app.post('/api/logout', (req: Request, res: Response) => {
 });
 
 // Middleware to check for authentication
-const checkAuth = (req: Request, res: Response, next: NextFunction) => {
+const checkAuth: express.RequestHandler = (req, res, next) => {
     if (!req.session.user) {
         return res.status(401).send('Not authenticated');
     }
     next();
 };
 
-app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
+app.get('/api/settings', checkAuth, (req, res) => {
     const email = req.session.user!.email;
     if (!userSettings[email]) {
         userSettings[email] = {
@@ -146,14 +146,14 @@ app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
     res.json(userSettings[email]);
 });
 
-app.post('/api/settings', checkAuth, (req: Request, res: Response) => {
+app.post('/api/settings', checkAuth, (req, res) => {
     const email = req.session.user!.email;
     userSettings[email] = { ...userSettings[email], ...req.body.settings };
     res.status(200).json(userSettings[email]);
 });
 
 
-app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
+app.get('/api/mailboxes', checkAuth, async (req, res) => {
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
         const boxes = await connection.getBoxes();
@@ -169,7 +169,7 @@ app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) => {
+app.get('/api/emails/:mailbox', checkAuth, async (req, res) => {
     const mailbox = req.params.mailbox;
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
@@ -221,7 +221,7 @@ app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) =
     }
 });
 
-app.post('/api/send', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/send', checkAuth, async (req, res) => {
     const { to, subject, body } = req.body;
     const transport = getSmtpTransport(req.session.user!);
 
@@ -282,7 +282,7 @@ const performAction = async (user: { email: string; pass: string; name: string }
     }
 };
 
-app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/star', checkAuth, async (req, res) => {
     const { actions }: ActionRequest = req.body;
     const { isStarred } = req.body;
     try {
@@ -296,7 +296,7 @@ app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => 
     }
 });
 
-app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/mark-as-read', checkAuth, async (req, res) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.addFlags(uids, '\\Seen'));
@@ -307,7 +307,7 @@ app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Respo
     }
 });
 
-app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/mark-as-unread', checkAuth, async (req, res) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.delFlags(uids, '\\Seen'));
@@ -318,7 +318,7 @@ app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Res
     }
 });
 
-app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/move', checkAuth, async (req, res) => {
   const { actions, targetFolder }: { actions: Action[], targetFolder: string } = req.body;
   try {
     await performAction(req.session.user!, actions, (conn, uids) => conn.moveMessage(uids.map(String), targetFolder));
@@ -329,7 +329,7 @@ app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => 
   }
 });
 
-app.post('/api/actions/delete', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/delete', checkAuth, async (req, res) => {
     const { actions }: ActionRequest = req.body;
     const connection = await Imap.connect(getImapConfig(req.session.user!));
     try {

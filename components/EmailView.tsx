@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ArrowUturnLeftIcon } from './icons/ArrowUturnLeftIcon';
 import { ArrowUturnRightIcon } from './icons/ArrowUturnRightIcon';
@@ -13,6 +13,14 @@ import { PaperClipIcon } from './icons/PaperClipIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
 import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
+import { EllipsisVerticalIcon } from './icons/EllipsisVerticalIcon';
+import { PrinterIcon } from './icons/PrinterIcon';
+import { ArrowTopRightOnSquareIcon } from './icons/ArrowTopRightOnSquareIcon';
+import { NoSymbolIcon } from './icons/NoSymbolIcon';
+import { CodeBracketIcon } from './icons/CodeBracketIcon';
+import { ArrowDownTrayIcon } from './icons/ArrowDownTrayIcon';
+import { EnvelopeOpenIcon } from './icons/EnvelopeOpenIcon';
+
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -73,8 +81,10 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
 
 
 const EmailView: React.FC = () => {
-  const { selectedConversationId, setSelectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar, markAsSpam, markAsNotSpam, displayedConversations } = useAppContext();
+  const { selectedConversationId, setSelectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar, markAsSpam, markAsNotSpam, displayedConversations, addRule, markAsUnread } = useAppContext();
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   
   const selectedConversation = displayedConversations.find(c => c.id === selectedConversationId);
   const latestEmail = selectedConversation?.emails[selectedConversation.emails.length - 1];
@@ -85,6 +95,18 @@ const EmailView: React.FC = () => {
       setExpandedEmails(new Set([latestEmailId]));
     }
   }, [selectedConversation]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (!selectedConversation) {
     return (
@@ -114,6 +136,139 @@ const EmailView: React.FC = () => {
       } else {
           markAsSpam([selectedConversation.id]);
       }
+      setIsMoreMenuOpen(false);
+  };
+  
+  const handleMarkAsUnread = () => {
+    markAsUnread(selectedConversation.id);
+    setIsMoreMenuOpen(false);
+    setSelectedConversationId(null);
+  };
+
+  const handleBlockSender = () => {
+    if (!latestEmail) return;
+    const senderEmail = latestEmail.senderEmail;
+    if (window.confirm(`Are you sure you want to block ${senderEmail}? Future messages from this sender will be moved to Trash.`)) {
+        addRule({
+            condition: { field: 'sender', operator: 'contains', value: senderEmail },
+            action: { type: 'move', folder: Folder.TRASH }
+        });
+    }
+    setIsMoreMenuOpen(false);
+  };
+
+  const handlePrint = () => {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+          const emailContent = selectedConversation.emails.map(email => {
+              const date = new Date(email.timestamp).toLocaleString();
+              return `
+                  <div style="border: 1px solid #ccc; border-radius: 8px; margin-bottom: 1rem; padding: 1rem; font-family: sans-serif; page-break-inside: avoid;">
+                      <p><b>From:</b> ${email.senderName} &lt;${email.senderEmail}&gt;</p>
+                      <p><b>To:</b> ${email.recipientEmail}</p>
+                      <p><b>Date:</b> ${date}</p>
+                      <hr style="margin: 1rem 0;" />
+                      ${email.body}
+                  </div>
+              `;
+          }).join('');
+
+          printWindow.document.write(`
+              <html>
+                  <head>
+                      <title>Print Email - ${selectedConversation.subject}</title>
+                      <style>
+                          body { font-family: sans-serif; }
+                          blockquote { border-left: 2px solid #e5e7eb; margin: 0.5rem 0; padding-left: 1rem; color: #6b7280; }
+                      </style>
+                  </head>
+                  <body>
+                      <h1>${selectedConversation.subject}</h1>
+                      ${emailContent}
+                  </body>
+              </html>
+          `);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+      }
+      setIsMoreMenuOpen(false);
+  };
+
+  const handleOpenInNewWindow = () => {
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+           const emailContent = selectedConversation.emails.map(email => {
+              const date = new Date(email.timestamp).toLocaleString();
+              return `
+                  <div style="border: 1px solid #ccc; border-radius: 8px; margin-bottom: 1rem; padding: 1rem;">
+                      <p><b>From:</b> ${email.senderName} &lt;${email.senderEmail}&gt;</p>
+                      <p><b>To:</b> ${email.recipientEmail}</p>
+                      <p><b>Date:</b> ${date}</p>
+                      <hr style="margin: 1rem 0;" />
+                      ${email.body}
+                  </div>
+              `;
+          }).join('');
+
+          newWindow.document.write(`
+               <html>
+                  <head>
+                      <title>${selectedConversation.subject}</title>
+                      <style>
+                          body { font-family: sans-serif; padding: 1rem; background-color: #f8f9fa; color: #202124;}
+                          h1 { font-size: 1.5rem; }
+                          blockquote { border-left: 2px solid #e5e7eb; margin: 0.5rem 0; padding-left: 1rem; color: #6b7280; }
+                      </style>
+                  </head>
+                  <body>
+                      <h1>${selectedConversation.subject}</h1>
+                      ${emailContent}
+                  </body>
+              </html>
+          `);
+          newWindow.document.close();
+      }
+      setIsMoreMenuOpen(false);
+  };
+
+  const handleViewOriginal = () => {
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+          const source = selectedConversation.emails.map(email => `From: ${email.senderName} <${email.senderEmail}>
+To: ${email.recipientEmail}
+Subject: ${email.subject}
+Date: ${new Date(email.timestamp).toUTCString()}
+Content-Type: text/html; charset=UTF-8
+
+${email.body}`).join('\n\n============================================================\n\n');
+          newWindow.document.write(`<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace;">${source.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`);
+          newWindow.document.close();
+      }
+      setIsMoreMenuOpen(false);
+  };
+
+  const handleDownload = () => {
+      if(!latestEmail) return;
+      const source = `From: ${latestEmail.senderName} <${latestEmail.senderEmail}>
+To: ${latestEmail.recipientEmail}
+Subject: ${latestEmail.subject}
+Date: ${new Date(latestEmail.timestamp).toUTCString()}
+Content-Type: text/html; charset=UTF-8
+MIME-Version: 1.0
+
+${latestEmail.body}`;
+      const blob = new Blob([source], { type: 'message/rfc822' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${latestEmail.subject.replace(/[^a-z0-9]/gi, '_') || 'email'}.eml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setIsMoreMenuOpen(false);
   };
 
   return (
@@ -140,6 +295,38 @@ const EmailView: React.FC = () => {
                 <button onClick={handleReply} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Reply to latest"><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                 <button onClick={handleForward} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Forward latest"><ArrowUturnRightIcon className="w-5 h-5"/></button>
                 <button onClick={handleDeleteConversation} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Delete conversation"><TrashIcon className="w-5 h-5"/></button>
+                <div className="relative" ref={moreMenuRef}>
+                    <button onClick={() => setIsMoreMenuOpen(p => !p)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="More options">
+                        <EllipsisVerticalIcon className="w-5 h-5"/>
+                    </button>
+                    {isMoreMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black dark:ring-gray-600 ring-opacity-5 z-20">
+                            <div className="py-1">
+                                <button onClick={handleMarkAsUnread} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <EnvelopeOpenIcon className="w-5 h-5" /> Mark as unread
+                                </button>
+                                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                <button onClick={handlePrint} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <PrinterIcon className="w-5 h-5" /> Print
+                                </button>
+                                <button onClick={handleOpenInNewWindow} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <ArrowTopRightOnSquareIcon className="w-5 h-5" /> Open in new window
+                                </button>
+                                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                <button onClick={handleBlockSender} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <NoSymbolIcon className="w-5 h-5" /> Block "{latestEmail?.senderName}"
+                                </button>
+                                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                <button onClick={handleViewOriginal} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <CodeBracketIcon className="w-5 h-5" /> Show original
+                                </button>
+                                <button onClick={handleDownload} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    <ArrowDownTrayIcon className="w-5 h-5" /> Download message
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
         {currentFolder === Folder.SPAM && (

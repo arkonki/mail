@@ -1,5 +1,6 @@
 
 
+
 export enum Folder {
   INBOX = 'Inbox',
   STARRED = 'Starred',
@@ -33,6 +34,8 @@ export interface Email {
   senderName: string;
   senderEmail: string;
   recipientEmail: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   snippet: string;
@@ -104,4 +107,8 @@ export interface AppSettings {
   signature: Signature;
   autoResponder: AutoResponder;
   rules: Rule[];
+  sendDelay: {
+    isEnabled: boolean;
+    duration: 5 | 10 | 20 | 30; // seconds
+  };
 }

@@ -13,15 +13,34 @@ interface ComposeState {
   bodyPrefix?: string;
   draftId?: string;
   conversationId?: string;
+  initialData?: {
+      to: string;
+      cc?: string;
+      bcc?: string;
+      subject: string;
+      body: string;
+      attachments: File[];
+  }
 }
 
 type Theme = 'light' | 'dark';
 type View = 'mail' | 'settings' | 'contacts';
 
+interface SendEmailData {
+  to: string; 
+  cc?: string; 
+  bcc?: string; 
+  subject: string; 
+  body: string; 
+  attachments: File[]; 
+  scheduleDate?: Date;
+}
+
 const initialAppSettings: AppSettings = {
   signature: { isEnabled: false, body: '' },
   autoResponder: { isEnabled: false, subject: '', message: '' },
-  rules: []
+  rules: [],
+  sendDelay: { isEnabled: true, duration: 5 },
 };
 
 interface AppContextType {
@@ -57,9 +76,10 @@ interface AppContextType {
   setSearchQuery: (query: string) => void;
   
   // Compose
-  openCompose: (config?: { action?: ActionType; email?: Email; recipient?: string; bodyPrefix?: string; }) => void;
+  openCompose: (config?: Partial<Omit<ComposeState, 'isOpen'>>) => void;
   closeCompose: () => void;
-  sendEmail: (data: { to: string; subject: string; body: string; attachments: File[] }, draftId?: string, conversationId?: string) => Promise<void>;
+  sendEmail: (data: SendEmailData) => Promise<void>;
+  cancelSend: () => void;
   
   // Mail Actions
   toggleStar: (conversationId: string, isCurrentlyStarred: boolean) => void;
@@ -91,7 +111,8 @@ interface AppContextType {
   updateAutoResponder: (autoResponder: AutoResponder) => void;
   addRule: (rule: Omit<Rule, 'id'>) => void;
   deleteRule: (ruleId: string) => void;
-  
+  updateSendDelay: (sendDelay: AppSettings['sendDelay']) => void;
+
   // Folder Management
   createUserFolder: (name: string) => void;
   renameUserFolder: (id: string, newName: string) => void;
@@ -131,6 +152,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   });
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [pendingSend, setPendingSend] = useState<{ timerId: number, emailData: SendEmailData } | null>(null);
 
   useEffect(() => { localStorage.setItem('appSettings', JSON.stringify(appSettings)); }, [appSettings]);
   useEffect(() => { localStorage.setItem('contacts', JSON.stringify(contacts)); }, [contacts]);
@@ -245,7 +267,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     setSelectedConversationIds(new Set());
   }, []);
 
-  const openCompose = useCallback((config: { action?: ActionType; email?: Email; recipient?: string; bodyPrefix?: string; } = {}) => {
+  const openCompose = useCallback((config: Partial<Omit<ComposeState, 'isOpen'>> = {}) => {
     setComposeState({ isOpen: true, ...config });
   }, []);
 
@@ -266,28 +288,78 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     if(conversationIds.includes(selectedConversationId!)) setSelectedConversationId(null);
   }, [addToast, selectedConversationId, selectedConversationIds.size, deselectAllConversations]);
 
-  const sendEmail = useCallback(async (data: { to: string; subject: string; body: string; attachments: File[] }) => {
-    if (!user) return;
-    const newEmail: Email = {
-      id: `email-${Date.now()}`,
-      conversationId: `conv-${Date.now()}`,
-      senderName: user.name,
-      senderEmail: user.email,
-      recipientEmail: data.to,
-      subject: data.subject || '(no subject)',
-      body: data.body,
-      snippet: data.body.replace(/<[^>]*>?/gm, '').substring(0, 100),
-      timestamp: new Date().toISOString(),
-      isRead: true,
-      isStarred: false,
-      folder: Folder.SENT,
-      attachments: data.attachments.map(f => ({fileName: f.name, fileSize: f.size})),
-    };
+  const actuallySendEmail = useCallback((data: SendEmailData) => {
+      if (!user) return;
+      const isScheduled = !!data.scheduleDate;
+      const newEmail: Email = {
+        id: `email-${Date.now()}`,
+        conversationId: `conv-${Date.now()}`,
+        senderName: user.name,
+        senderEmail: user.email,
+        recipientEmail: data.to,
+        cc: data.cc,
+        bcc: data.bcc,
+        subject: data.subject || '(no subject)',
+        body: data.body,
+        snippet: data.body.replace(/<[^>]*>?/gm, '').substring(0, 100),
+        timestamp: new Date().toISOString(),
+        isRead: true,
+        isStarred: false,
+        folder: isScheduled ? Folder.SCHEDULED : Folder.SENT,
+        attachments: data.attachments.map(f => ({fileName: f.name, fileSize: f.size})),
+        scheduledSendTime: isScheduled ? data.scheduleDate.toISOString() : undefined,
+      };
 
-    setEmails(prev => [newEmail, ...prev]);
-    addToast('Message sent.');
-    setCurrentFolderCallback(Folder.SENT);
-  }, [addToast, user, setCurrentFolderCallback]);
+      setEmails(prev => [newEmail, ...prev]);
+      
+      if (isScheduled) {
+          addToast('Message scheduled.');
+          setCurrentFolderCallback(Folder.SCHEDULED);
+      } else {
+          addToast('Message sent.');
+          setCurrentFolderCallback(Folder.SENT);
+      }
+  }, [user, addToast, setCurrentFolderCallback]);
+
+  const cancelSend = useCallback(() => {
+    if (pendingSend) {
+        clearTimeout(pendingSend.timerId);
+        openCompose({ initialData: pendingSend.emailData });
+        setPendingSend(null);
+        addToast('Sending cancelled.');
+    }
+  }, [pendingSend, openCompose, addToast]);
+
+  const sendEmail = useCallback(async (data: SendEmailData) => {
+    closeCompose();
+    // If it's a scheduled send, handle it immediately.
+    if (data.scheduleDate) {
+      actuallySendEmail(data);
+      return;
+    }
+    
+    // Handle send delay (undo send)
+    if (appSettings.sendDelay.isEnabled && appSettings.sendDelay.duration > 0) {
+      if (pendingSend?.timerId) {
+        clearTimeout(pendingSend.timerId); // Cancel previous pending send
+      }
+      
+      const timerId = setTimeout(() => {
+        actuallySendEmail(data);
+        setPendingSend(null);
+      }, appSettings.sendDelay.duration * 1000);
+      
+      setPendingSend({ timerId: timerId as unknown as number, emailData: data });
+      
+      addToast('Sending...', {
+        duration: appSettings.sendDelay.duration * 1000,
+        action: { label: 'Undo', onClick: cancelSend }
+      });
+    } else {
+      // Immediate send
+      actuallySendEmail(data);
+    }
+  }, [closeCompose, actuallySendEmail, appSettings.sendDelay, pendingSend, addToast, cancelSend]);
   
   const toggleStar = useCallback(async (conversationId: string, isCurrentlyStarred: boolean) => {
     setEmails(prevEmails => 
@@ -480,6 +552,11 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
       setAppSettings(prev => ({ ...prev, rules: prev.rules.filter(r => r.id !== ruleId) }));
       addToast("Rule deleted.");
   }, [addToast]);
+  
+  const updateSendDelay = useCallback((sendDelay: AppSettings['sendDelay']) => {
+      setAppSettings(prev => ({ ...prev, sendDelay }));
+      addToast("Send delay settings updated.");
+  }, [addToast]);
 
   const setViewCallback = useCallback((newView: View) => {
     setView(newView);
@@ -494,11 +571,11 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     user, emails, conversations: allConversations, userFolders, currentFolder, selectedConversationId, focusedConversationId, composeState, searchQuery, selectedConversationIds, theme, displayedConversations, isSidebarCollapsed, view, appSettings, contacts, selectedContactId, isLoading, loginError,
     login, logout, checkUserSession,
     setCurrentFolder: setCurrentFolderCallback, setSelectedConversationId, setSearchQuery,
-    openCompose, closeCompose, sendEmail,
+    openCompose, closeCompose, sendEmail, cancelSend,
     toggleStar, deleteConversation, moveConversations, markAsRead, markAsUnread, markAsSpam, markAsNotSpam,
     toggleConversationSelection, selectAllConversations, deselectAllConversations, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread,
     toggleTheme, toggleSidebar, handleEscape, navigateConversationList, openFocusedConversation, setView: setViewCallback,
-    updateSignature, updateAutoResponder, addRule, deleteRule,
+    updateSignature, updateAutoResponder, addRule, deleteRule, updateSendDelay,
     createUserFolder, renameUserFolder, deleteUserFolder,
     addContact, updateContact, deleteContact, setSelectedContactId,
   };

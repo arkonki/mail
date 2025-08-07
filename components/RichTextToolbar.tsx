@@ -1,8 +1,14 @@
 
 import React from 'react';
 import { LinkIcon } from './icons/LinkIcon';
+import { ListBulletIcon } from './icons/ListBulletIcon';
+import { PhotoIcon } from './icons/PhotoIcon';
 
-const RichTextToolbar: React.FC = () => {
+interface RichTextToolbarProps {
+    onInsertImage: () => void;
+}
+
+const RichTextToolbar: React.FC<RichTextToolbarProps> = ({ onInsertImage }) => {
     const handleFormat = (command: string, value?: string) => {
         document.execCommand(command, false, value);
     };
@@ -19,7 +25,7 @@ const RichTextToolbar: React.FC = () => {
             type="button"
             onClick={onClick}
             onMouseDown={e => e.preventDefault()} // Prevent editor from losing focus
-            className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+            className="p-2 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center w-8 h-8"
             title={title}
         >
             {children}
@@ -29,19 +35,27 @@ const RichTextToolbar: React.FC = () => {
     return (
         <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-md">
             <Button onClick={() => handleFormat('bold')} title="Bold">
-                <span className="font-bold w-5 h-5 flex items-center justify-center">B</span>
+                <span className="font-bold">B</span>
             </Button>
             <Button onClick={() => handleFormat('italic')} title="Italic">
-                <span className="italic w-5 h-5 flex items-center justify-center">I</span>
+                <span className="italic">I</span>
             </Button>
              <Button onClick={() => handleFormat('underline')} title="Underline">
-                <span className="underline w-5 h-5 flex items-center justify-center">U</span>
+                <span className="underline">U</span>
             </Button>
             <div className="h-5 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
-            <Button onClick={() => handleFormat('insertUnorderedList')} title="Bulleted List">&bull;</Button>
-            <Button onClick={() => handleFormat('insertOrderedList')} title="Numbered List">1.</Button>
+            <Button onClick={() => handleFormat('insertUnorderedList')} title="Bulleted List">
+                <ListBulletIcon className="w-5 h-5" />
+            </Button>
+            <Button onClick={() => handleFormat('insertOrderedList')} title="Numbered List">
+                <span className="font-mono text-sm">1.</span>
+            </Button>
             <Button onClick={handleLink} title="Insert Link">
                 <LinkIcon className="w-4 h-4" />
+            </Button>
+            <div className="h-5 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+            <Button onClick={onInsertImage} title="Insert image">
+                <PhotoIcon className="w-5 h-5" />
             </Button>
         </div>
     );

@@ -161,7 +161,7 @@ const Sidebar: React.FC = () => {
     }
   }
 
-  const systemFolders = Object.values(Folder).filter(f => ![Folder.SCHEDULED, Folder.SNOOZED].includes(f));
+  const systemFolders = Object.values(Folder).filter(f => ![Folder.SNOOZED].includes(f));
 
   return (
     <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
