@@ -241,7 +241,7 @@ app.post('/api/send', checkAuth, async (req: Request, res: Response) => {
             if (sentFolder) {
                 // We need the full raw message to append it
                 // This is a simplified version; a full implementation would reconstruct the raw message.
-                const rawMessage = `From: "${req.session.user!.name}" <${req.session.user!.email}>\r\nTo: ${to}\r\nSubject: ${subject}\r\n\r\n${body.replace(/<[^>]*>?/gm, '')}`;
+                const rawMessage = `From: "${req.session.user!.name}" <${req.session.user!.email}>\\r\\nTo: ${to}\\r\\nSubject: ${subject}\\r\\n\\r\\n${body.replace(/<[^>]*>?/gm, '')}`;
                 await connection.append(rawMessage, { mailbox: sentFolder, flags: ['\\Seen'] });
             }
         } catch (imapError) {

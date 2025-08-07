@@ -6,7 +6,7 @@ import { InboxIcon } from './icons/InboxIcon';
 import { FolderArrowDownIcon } from './icons/FolderArrowDownIcon';
 import MoveToPopover from './MoveToPopover';
 import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
-import ConversationListItem from './ConversationListItem';
+import ConversationListItem from './EmailListItem';
 
 const BulkActionBar = () => {
     const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations, markAsSpam } = useAppContext();
@@ -88,3 +88,28 @@ const EmailList: React.FC = () => {
           {displayedConversations.map((conv) => (
             <ConversationListItem key={conv.id} conversation={conv} />
           ))}
+        </ul>
+    );
+  };
+
+  return (
+    <div className="flex-grow flex flex-col bg-white dark:bg-dark-surface overflow-y-auto">
+        { showBulkActions ? <BulkActionBar /> : (
+            <div className="p-4 border-b border-outline dark:border-dark-outline flex items-center space-x-4">
+                <input
+                    type="checkbox"
+                    className="form-checkbox h-5 w-5 text-primary rounded border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800 focus:ring-primary"
+                    checked={areAllSelected}
+                    onChange={handleSelectAll}
+                    disabled={displayedConversations.length === 0}
+                    title="Select all"
+                />
+                <h2 className="text-lg font-medium text-on-surface dark:text-dark-on-surface">{listTitle}</h2>
+            </div>
+        )}
+      {renderContent()}
+    </div>
+  );
+};
+
+export default EmailList;
