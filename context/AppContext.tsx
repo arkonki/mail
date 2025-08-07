@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Email, ActionType, UserFolder, Conversation, User, AppSettings, Signature, AutoResponder, Rule, Folder, Attachment, Contact } from '../types';
 import { useToast } from './ToastContext';
 import { mockEmails } from '../data/mockData';
@@ -12,6 +12,8 @@ interface ComposeState {
   isOpen: boolean;
   action?: ActionType;
   email?: Email;
+  recipient?: string;
+  bodyPrefix?: string;
   draftId?: string;
   conversationId?: string;
 }
@@ -36,19 +38,22 @@ interface AppContextType {
   userFolders: UserFolder[];
   currentFolder: string;
   selectedConversationId: string | null;
+  focusedConversationId: string | null;
   composeState: ComposeState;
   searchQuery: string;
   selectedConversationIds: Set<string>;
   theme: Theme;
   displayedConversations: Conversation[];
-  isSidebarOpen: boolean;
+  isSidebarCollapsed: boolean;
   user: User | null;
   view: View;
   appSettings: AppSettings;
   contacts: Contact[];
+  selectedContactId: string | null;
+  smartRepliesCache: Map<string, string[] | 'loading' | 'error'>;
   setCurrentFolder: (folder: string) => void;
   setSelectedConversationId: (id: string | null) => void;
-  openCompose: (action?: ActionType, email?: Email) => void;
+  openCompose: (config?: { action?: ActionType; email?: Email; recipient?: string; bodyPrefix?: string; }) => void;
   closeCompose: () => void;
   toggleStar: (conversationId: string, emailId?: string) => void;
   sendEmail: (data: { to: string; subject: string; body: string; attachments: File[] }, draftId?: string, conversationId?: string) => void;
@@ -73,6 +78,7 @@ interface AppContextType {
   addRule: (rule: Omit<Rule, 'id'>) => void;
   deleteRule: (ruleId: string) => void;
   summarizeConversation: (conversationId: string) => Promise<string | null>;
+  generateSmartReplies: (conversationId: string) => void;
   scheduleEmail: (data: { to: string; subject: string; body: string; attachments: File[], scheduledTime: Date }, draftId?: string, conversationId?: string) => void;
   simulateNewEmail: () => void;
   createUserFolder: (name: string) => void;
@@ -84,6 +90,8 @@ interface AppContextType {
   addContact: (contact: Omit<Contact, 'id'>) => void;
   updateContact: (contact: Contact) => void;
   deleteContact: (contactId: string) => void;
+  openFocusedConversation: () => void;
+  setSelectedContactId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -103,17 +111,20 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   });
   const [currentFolder, setCurrentFolder] = useState<string>(Folder.INBOX);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [focusedConversationId, setFocusedConversationId] = useState<string | null>(null);
   const [composeState, setComposeState] = useState<ComposeState>({ isOpen: false });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedConversationIds, setSelectedConversationIds] = useState(new Set<string>());
   const { addToast } = useToast();
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'light');
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => localStorage.getItem('isSidebarOpen') !== 'false');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => localStorage.getItem('isSidebarCollapsed') === 'true');
   const [view, setView] = useState<View>('mail');
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
       const savedSettings = localStorage.getItem('appSettings');
       return savedSettings ? JSON.parse(savedSettings) : initialAppSettings;
   });
+  const [smartRepliesCache, setSmartRepliesCache] = useState(new Map<string, string[] | 'loading' | 'error'>());
 
   const pendingSendTimer = useRef<NodeJS.Timeout | null>(null);
   const scheduledTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -215,15 +226,19 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     setView('mail');
     setCurrentFolder(folder);
     setSelectedConversationId(null);
+    setFocusedConversationId(null);
     setSearchQuery('');
     setSelectedConversationIds(new Set());
   }, []);
 
-  const openCompose = useCallback((action?: ActionType, email?: Email) => {
+  const openCompose = useCallback((config: { action?: ActionType; email?: Email; recipient?: string; bodyPrefix?: string; } = {}) => {
+    const { action, email, recipient, bodyPrefix } = config;
     setComposeState({
       isOpen: true,
       action,
       email,
+      recipient,
+      bodyPrefix,
       draftId: email?.folder === Folder.DRAFTS ? email.id : undefined,
       conversationId: email?.conversationId
     });
@@ -295,10 +310,10 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
                     attachments: data.attachments.map(f => ({ fileName: f.name, fileSize: f.size })),
                 };
                  
-                openCompose(
-                    draftId ? ActionType.DRAFT : undefined,
-                    { ...(draftToReopen || fallbackEmail), id: draftId || '', conversationId: conversationId || '', senderName: MOCK_USER.name, senderEmail: MOCK_USER.email, recipientEmail: data.to, snippet: '', timestamp: '', isRead: true, isStarred: false, folder: Folder.DRAFTS }
-                );
+                openCompose({
+                    action: draftId ? ActionType.DRAFT : undefined,
+                    email: { ...(draftToReopen || fallbackEmail), id: draftId || '', conversationId: conversationId || '', senderName: MOCK_USER.name, senderEmail: MOCK_USER.email, recipientEmail: data.to, snippet: '', timestamp: '', isRead: true, isStarred: false, folder: Folder.DRAFTS }
+                });
                 addToast('Send undone.');
             }
         }}
@@ -403,7 +418,8 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     if (composeState.isOpen) closeCompose();
     else if (selectedConversationId) setSelectedConversationId(null);
     else if (searchQuery) setSearchQuery('');
-  }, [composeState.isOpen, selectedConversationId, searchQuery, closeCompose]);
+    else if (focusedConversationId) setFocusedConversationId(null);
+  }, [composeState.isOpen, selectedConversationId, searchQuery, focusedConversationId, closeCompose]);
 
   const toggleTheme = useCallback(() => {
     setTheme(prevTheme => {
@@ -414,9 +430,9 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   const toggleSidebar = useCallback(() => {
-    setIsSidebarOpen(prev => {
+    setIsSidebarCollapsed(prev => {
       const newState = !prev;
-      localStorage.setItem('isSidebarOpen', String(newState));
+      localStorage.setItem('isSidebarCollapsed', String(newState));
       return newState;
     });
   }, []);
@@ -457,15 +473,37 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   const navigateConversationList = useCallback((direction: 'up' | 'down') => {
-    const index = displayedConversations.findIndex(c => c.id === selectedConversationId);
-    let nextIndex = index + (direction === 'down' ? 1 : -1);
-    nextIndex = Math.max(0, Math.min(displayedConversations.length - 1, nextIndex));
-    if(nextIndex !== index) {
-      const newSelectedConv = displayedConversations[nextIndex];
-      setSelectedConversationId(newSelectedConv.id);
-      if(!newSelectedConv.isRead) markAsRead(newSelectedConv.id);
+    if (displayedConversations.length === 0) return;
+
+    const currentId = focusedConversationId || selectedConversationId;
+    const index = displayedConversations.findIndex(c => c.id === currentId);
+    
+    let nextIndex;
+    if (index === -1) {
+        nextIndex = direction === 'down' ? 0 : displayedConversations.length - 1;
+    } else {
+        nextIndex = index + (direction === 'down' ? 1 : -1);
     }
-  }, [displayedConversations, selectedConversationId, markAsRead]);
+
+    // Clamp index to be within bounds
+    nextIndex = Math.max(0, Math.min(displayedConversations.length - 1, nextIndex));
+
+    if (nextIndex !== index) {
+      const newFocusedConv = displayedConversations[nextIndex];
+      if (newFocusedConv) {
+          setFocusedConversationId(newFocusedConv.id);
+      }
+    }
+  }, [displayedConversations, focusedConversationId, selectedConversationId]);
+  
+  const openFocusedConversation = useCallback(() => {
+    if (focusedConversationId) {
+        setSelectedConversationId(focusedConversationId);
+        if (!allConversations.find(c => c.id === focusedConversationId)?.isRead) {
+            markAsRead(focusedConversationId);
+        }
+    }
+  }, [focusedConversationId, allConversations, markAsRead]);
 
   const summarizeConversation = useCallback(async (conversationId: string): Promise<string | null> => {
     const conversation = displayedConversations.find(c => c.id === conversationId);
@@ -489,6 +527,51 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
         return null;
     }
   }, [displayedConversations, addToast]);
+  
+  const generateSmartReplies = useCallback(async (conversationId: string) => {
+    if (smartRepliesCache.has(conversationId) || !process.env.API_KEY) {
+        return;
+    }
+    
+    const conversation = allConversations.find(c => c.id === conversationId);
+    if (!conversation) return;
+    
+    setSmartRepliesCache(prev => new Map(prev).set(conversationId, 'loading'));
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const prompt = `Based on the last email in this thread, suggest three short, context-aware, one-sentence replies. The user is "${MOCK_USER.name}". Format the output as a JSON object with a single key "replies" that contains an array of three strings.\n\nConversation History:\n${conversation.emails.map(e => `${e.senderName}: ${e.body.replace(/<[^>]*>?/gm, ' ').substring(0, 200)}`).join('\n---\n')}`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                replies: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
+              }
+            }
+          }
+        });
+
+        const jsonResponse = JSON.parse(response.text);
+        if (jsonResponse.replies && Array.isArray(jsonResponse.replies)) {
+             setSmartRepliesCache(prev => new Map(prev).set(conversationId, jsonResponse.replies));
+        } else {
+             throw new Error("Invalid response format");
+        }
+    } catch (error) {
+        console.error("Error generating smart replies:", error);
+        addToast("Could not generate smart replies.", { duration: 3000 });
+        setSmartRepliesCache(prev => new Map(prev).set(conversationId, 'error'));
+    }
+  }, [allConversations, smartRepliesCache, addToast]);
 
   const processNewEmail = useCallback((email: Email) => {
     let finalEmail = { ...email };
@@ -638,18 +721,20 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   // Contact management
   const addContact = useCallback((contactData: Omit<Contact, 'id'>) => {
     const newContact: Contact = { ...contactData, id: `contact-${Date.now()}` };
-    setContacts(prev => [...prev, newContact]);
+    setContacts(prev => [...prev, newContact].sort((a,b) => a.name.localeCompare(b.name)));
     addToast('Contact added.');
+    setSelectedContactId(newContact.id);
   }, [addToast]);
   
   const updateContact = useCallback((updatedContact: Contact) => {
-    setContacts(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c));
+    setContacts(prev => prev.map(c => c.id === updatedContact.id ? updatedContact : c).sort((a,b) => a.name.localeCompare(b.name)));
     addToast('Contact updated.');
   }, [addToast]);
 
   const deleteContact = useCallback((contactId: string) => {
     setContacts(prev => prev.filter(c => c.id !== contactId));
     addToast('Contact deleted.');
+    setSelectedContactId(null);
   }, [addToast]);
 
   const updateSignature = useCallback((signature: Signature) => setAppSettings(prev => ({...prev, signature})), []);
@@ -667,13 +752,15 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   const setViewCallback = useCallback((newView: View) => {
     setView(newView);
     setSelectedConversationId(null);
+    setFocusedConversationId(null);
     setSearchQuery('');
     setSelectedConversationIds(new Set());
+    setSelectedContactId(null);
   }, []);
 
   const contextValue: AppContextType = {
-    emails, conversations: allConversations, userFolders, currentFolder, selectedConversationId, composeState, searchQuery, selectedConversationIds, theme, displayedConversations, isSidebarOpen, user: MOCK_USER, view, appSettings, contacts,
-    setCurrentFolder: setCurrentFolderCallback, setSelectedConversationId, openCompose, closeCompose, toggleStar, sendEmail, deleteConversation, setSearchQuery, toggleConversationSelection, selectAllConversations, deselectAllConversations, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, moveConversations, toggleTheme, toggleSidebar, handleEscape, navigateConversationList, saveDraft, setView: setViewCallback, markAsRead, updateSignature, updateAutoResponder, addRule, deleteRule, summarizeConversation, scheduleEmail, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, markAsSpam, markAsNotSpam, snoozeConversation, addContact, updateContact, deleteContact
+    emails, conversations: allConversations, userFolders, currentFolder, selectedConversationId, focusedConversationId, composeState, searchQuery, selectedConversationIds, theme, displayedConversations, isSidebarCollapsed, user: MOCK_USER, view, appSettings, contacts, selectedContactId, smartRepliesCache,
+    setCurrentFolder: setCurrentFolderCallback, setSelectedConversationId, openCompose, closeCompose, toggleStar, sendEmail, deleteConversation, setSearchQuery, toggleConversationSelection, selectAllConversations, deselectAllConversations, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, moveConversations, toggleTheme, toggleSidebar, handleEscape, navigateConversationList, saveDraft, setView: setViewCallback, markAsRead, updateSignature, updateAutoResponder, addRule, deleteRule, summarizeConversation, generateSmartReplies, scheduleEmail, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, markAsSpam, markAsNotSpam, snoozeConversation, addContact, updateContact, deleteContact, openFocusedConversation, setSelectedContactId,
   };
 
   return (

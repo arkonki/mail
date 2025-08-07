@@ -1,9 +1,8 @@
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
-import 'express-session'; // Fixes type augmentation for req.session
 import * as Imap from 'imap-simple';
 import nodemailer from 'nodemailer';
 import { simpleParser, ParsedMail } from 'mailparser';
@@ -16,7 +15,7 @@ interface Address {
     address?: string;
 }
 
-const app: express.Express = express();
+const app = express();
 app.use(cors({
     origin: 'http://localhost:8080', // Adjust if your frontend runs on a different port
     credentials: true,
@@ -81,7 +80,7 @@ const findTrashFolder = (boxes: { [name: string]: any }): string | null => {
     return null;
 }
 
-app.post('/api/login', async (req: express.Request, res: express.Response) => {
+app.post('/api/login', async (req: Request, res: Response) => {
     const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).send('Email and password are required');
@@ -105,7 +104,7 @@ app.post('/api/login', async (req: express.Request, res: express.Response) => {
     }
 });
 
-app.post('/api/logout', (req: express.Request, res: express.Response) => {
+app.post('/api/logout', (req: Request, res: Response) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).send('Could not log out.');
@@ -116,14 +115,14 @@ app.post('/api/logout', (req: express.Request, res: express.Response) => {
 });
 
 // Middleware to check for authentication
-const checkAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const checkAuth = (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.user) {
         return res.status(401).send('Not authenticated');
     }
     next();
 };
 
-app.get('/api/settings', checkAuth, (req: express.Request, res: express.Response) => {
+app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
     const email = req.session.user!.email;
     if (!userSettings[email]) {
         userSettings[email] = {
@@ -135,14 +134,14 @@ app.get('/api/settings', checkAuth, (req: express.Request, res: express.Response
     res.json(userSettings[email]);
 });
 
-app.post('/api/settings', checkAuth, (req: express.Request, res: express.Response) => {
+app.post('/api/settings', checkAuth, (req: Request, res: Response) => {
     const email = req.session.user!.email;
     userSettings[email] = { ...userSettings[email], ...req.body.settings };
     res.status(200).json(userSettings[email]);
 });
 
 
-app.get('/api/mailboxes', checkAuth, async (req: express.Request, res: express.Response) => {
+app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
         const boxes = await connection.getBoxes();
@@ -158,7 +157,7 @@ app.get('/api/mailboxes', checkAuth, async (req: express.Request, res: express.R
     }
 });
 
-app.get('/api/emails/:mailbox', checkAuth, async (req: express.Request, res: express.Response) => {
+app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) => {
     const mailbox = req.params.mailbox;
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
@@ -219,7 +218,7 @@ app.get('/api/emails/:mailbox', checkAuth, async (req: express.Request, res: exp
     }
 });
 
-app.post('/api/send', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/send', checkAuth, async (req: Request, res: Response) => {
     const { to, subject, body, attachments } = req.body;
     const transport = getSmtpTransport(req.session.user!);
 
@@ -260,7 +259,7 @@ const performAction = async (user: { email: string; pass: string }, actions: Act
     }
 };
 
-app.post('/api/actions/star', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     const { isStarred } = req.body;
     try {
@@ -274,7 +273,7 @@ app.post('/api/actions/star', checkAuth, async (req: express.Request, res: expre
     }
 });
 
-app.post('/api/actions/mark-as-read', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.addFlags(uids, '\\Seen'));
@@ -285,7 +284,7 @@ app.post('/api/actions/mark-as-read', checkAuth, async (req: express.Request, re
     }
 });
 
-app.post('/api/actions/mark-as-unread', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.delFlags(uids, '\\Seen'));
@@ -296,7 +295,7 @@ app.post('/api/actions/mark-as-unread', checkAuth, async (req: express.Request, 
     }
 });
 
-app.post('/api/actions/move', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => {
   const { actions, targetFolder }: { actions: Action[], targetFolder: string } = req.body;
   try {
     await performAction(req.session.user!, actions, async (conn, uids) => {
@@ -309,7 +308,7 @@ app.post('/api/actions/move', checkAuth, async (req: express.Request, res: expre
   }
 });
 
-app.post('/api/actions/delete', checkAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/actions/delete', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     const connection = await Imap.connect(getImapConfig(req.session.user!));
     try {

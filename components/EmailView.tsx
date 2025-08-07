@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ArrowUturnLeftIcon } from './icons/ArrowUturnLeftIcon';
 import { ArrowUturnRightIcon } from './icons/ArrowUturnRightIcon';
-import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { StarIconSolid } from './icons/StarIconSolid';
@@ -16,6 +15,7 @@ import { SpinnerIcon } from './icons/SpinnerIcon';
 import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import SnoozePopover from './SnoozePopover';
+import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -78,33 +78,37 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
 
 
 const EmailView: React.FC = () => {
-  const { conversations, selectedConversationId, setSelectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar, summarizeConversation, markAsSpam, markAsNotSpam, snoozeConversation, displayedConversations } = useAppContext();
+  const { user, selectedConversationId, setSelectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar, summarizeConversation, markAsSpam, markAsNotSpam, snoozeConversation, displayedConversations, generateSmartReplies, smartRepliesCache } = useAppContext();
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isSnoozePopoverOpen, setIsSnoozePopoverOpen] = useState(false);
   
   const selectedConversation = displayedConversations.find(c => c.id === selectedConversationId);
+  const latestEmail = selectedConversation?.emails[selectedConversation.emails.length - 1];
+  const replies = selectedConversation ? smartRepliesCache.get(selectedConversation.id) : undefined;
+  const showSmartReplies = latestEmail && user && latestEmail.senderEmail !== user.email;
 
   useEffect(() => {
     if (selectedConversation) {
       const latestEmailId = selectedConversation.emails[selectedConversation.emails.length - 1].id;
       setExpandedEmails(new Set([latestEmailId]));
       setSummary(null); // Reset summary when conversation changes
+      if (showSmartReplies) {
+        generateSmartReplies(selectedConversation.id);
+      }
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, generateSmartReplies, showSmartReplies]);
 
   if (!selectedConversation) {
     return (
-      <div className="flex-grow flex-col items-center justify-center bg-white dark:bg-dark-surface text-gray-500 dark:text-gray-400 hidden md:flex">
+      <div className="flex-grow flex flex-col items-center justify-center bg-white dark:bg-dark-surface text-gray-500 dark:text-gray-400">
         <MailIcon className="w-24 h-24 text-gray-200 dark:text-gray-700" />
         <p className="mt-4 text-lg">Select a conversation to read</p>
         <p className="text-sm">You are in the {currentFolder} folder</p>
       </div>
     );
   }
-
-  const latestEmail = selectedConversation.emails[selectedConversation.emails.length - 1];
 
   const handleToggleExpand = (emailId: string) => {
     setExpandedEmails(prev => {
@@ -127,8 +131,8 @@ const EmailView: React.FC = () => {
     setIsSnoozePopoverOpen(false);
   }
 
-  const handleReply = () => openCompose(ActionType.REPLY, latestEmail);
-  const handleForward = () => openCompose(ActionType.FORWARD, latestEmail);
+  const handleReply = () => openCompose({ action: ActionType.REPLY, email: latestEmail });
+  const handleForward = () => openCompose({ action: ActionType.FORWARD, email: latestEmail });
   const handleStarConversation = () => toggleStar(selectedConversation.id, undefined);
   const handleDeleteConversation = () => deleteConversation([selectedConversation.id]);
   const handleSpamAction = () => {
@@ -138,20 +142,22 @@ const EmailView: React.FC = () => {
           markAsSpam([selectedConversation.id]);
       }
   };
-  
-  const handleBack = () => setSelectedConversationId(null);
 
   return (
-    <div className={`flex-grow flex flex-col bg-gray-50 dark:bg-dark-surface overflow-y-auto ${selectedConversationId ? 'flex' : 'hidden md:flex'}`}>
+    <div className="flex-grow flex flex-col bg-gray-50 dark:bg-dark-surface overflow-y-auto">
       <div className="p-4 border-b border-outline dark:border-dark-outline bg-white dark:bg-dark-surface-container sticky top-0 z-10">
         <div className="flex justify-between items-center">
             <div className="flex items-center min-w-0">
-                <button onClick={handleBack} className="p-2 mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 md:hidden">
-                    <ArrowLeftIcon className="w-5 h-5" />
+                <button
+                  onClick={() => setSelectedConversationId(null)}
+                  className="p-2 mr-2 -ml-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title="Back to list"
+                >
+                  <ArrowLeftIcon className="w-5 h-5" />
                 </button>
                 <h2 className="text-xl font-normal text-on-surface dark:text-dark-on-surface truncate pr-4">{selectedConversation.subject}</h2>
             </div>
-            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+            <div className="flex items-center space-x-2 flex-shrink-0">
                 {selectedConversation.emails.length > 1 && (
                     <button onClick={handleSummarize} disabled={isSummarizing} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50" title="Summarize thread">
                         {isSummarizing ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <SparklesIcon className="w-5 h-5"/>}
@@ -180,7 +186,7 @@ const EmailView: React.FC = () => {
             </div>
         )}
       </div>
-      <div className="p-2 sm:p-6">
+      <div className="p-6">
         {summary && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg">
                 <h3 className="flex items-center text-lg font-semibold text-blue-800 dark:text-blue-200 mb-2">
@@ -196,11 +202,30 @@ const EmailView: React.FC = () => {
                 email={email}
                 isExpanded={expandedEmails.has(email.id)}
                 onToggle={() => handleToggleExpand(email.id)}
-                onReply={openCompose.bind(null, ActionType.REPLY)}
-                onForward={openCompose.bind(null, ActionType.FORWARD)}
-                onStar={toggleStar.bind(null, email.conversationId)}
+                onReply={(email) => openCompose({ action: ActionType.REPLY, email })}
+                onForward={(email) => openCompose({ action: ActionType.FORWARD, email })}
+                onStar={(emailId) => toggleStar(email.conversationId, emailId)}
             />
         ))}
+        {showSmartReplies && (
+            <div className="mt-4 pt-4 border-t border-outline dark:border-dark-outline">
+                {replies === 'loading' && <div className="text-sm text-gray-500 animate-pulse">Generating replies...</div>}
+                {Array.isArray(replies) && replies.length > 0 && (
+                    <div className="flex flex-wrap items-start gap-2">
+                        <SparklesIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2 mt-1 flex-shrink-0" />
+                        {replies.map((reply, index) => (
+                            <button
+                                key={index}
+                                onClick={() => openCompose({ action: ActionType.REPLY, email: latestEmail, bodyPrefix: reply })}
+                                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-dark-surface-container rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-on-surface dark:text-dark-on-surface transition-colors"
+                            >
+                                {reply}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )}
       </div>
     </div>
   );

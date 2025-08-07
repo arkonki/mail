@@ -71,7 +71,7 @@ const BulkActionBar = () => {
 
 
 const EmailList: React.FC = () => {
-  const { currentFolder, selectedConversationId, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations } = useAppContext();
+  const { currentFolder, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations } = useAppContext();
   const isSearching = searchQuery.length > 0;
   
   const allDisplayedIds = displayedConversations.map(c => c.id);
@@ -108,7 +108,7 @@ const EmailList: React.FC = () => {
   };
 
   return (
-    <div className={`flex-shrink-0 bg-white dark:bg-dark-surface border-r border-outline dark:border-dark-outline overflow-y-auto w-full md:w-1/3 flex-col ${selectedConversationId ? 'hidden md:flex' : 'flex'}`}>
+    <div className="flex-grow flex flex-col bg-white dark:bg-dark-surface overflow-y-auto">
         { showBulkActions ? <BulkActionBar /> : (
             <div className="p-4 border-b border-outline dark:border-dark-outline flex items-center space-x-4">
                 <input

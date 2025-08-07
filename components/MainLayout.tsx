@@ -14,12 +14,31 @@ interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
-  const { composeState, handleEscape, view, isSidebarOpen, toggleSidebar, isSidebarOpen: isSidebarCollapsed, selectedConversationId } = useAppContext();
+  const { composeState, handleEscape, view, isSidebarCollapsed, navigateConversationList, selectedConversationId, openFocusedConversation } = useAppContext();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.nodeName === 'INPUT' || target.nodeName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
       if (e.key === 'Escape') {
         handleEscape();
+      }
+
+      // Only handle list navigation when the list is visible
+      if (view === 'mail' && !composeState.isOpen && !selectedConversationId) {
+        if (e.key === 'ArrowUp' || e.key === 'k') {
+            e.preventDefault();
+            navigateConversationList('up');
+        } else if (e.key === 'ArrowDown' || e.key === 'j') {
+            e.preventDefault();
+            navigateConversationList('down');
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            openFocusedConversation();
+        }
       }
     };
     
@@ -27,16 +46,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleEscape]);
+  }, [handleEscape, view, composeState.isOpen, navigateConversationList, selectedConversationId, openFocusedConversation]);
 
-  const renderMailView = () => (
-    <div className="flex flex-grow overflow-hidden">
-      <div className={`md:flex flex-grow`}>
-        <EmailList />
-        <EmailView />
-      </div>
-    </div>
-  );
+  const renderMailView = () => {
+    if (selectedConversationId) {
+        return <EmailView />;
+    }
+    return <EmailList />;
+  };
 
   const renderView = () => {
     switch (view) {
@@ -53,10 +70,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
   return (
     <div className="flex flex-col h-screen bg-surface dark:bg-dark-surface text-on-surface dark:text-dark-on-surface">
       <Header onLogout={onLogout} />
-      <div className="flex flex-grow overflow-hidden relative">
-        {isSidebarOpen && <div onClick={toggleSidebar} className="fixed inset-0 bg-black/50 z-10 md:hidden" />}
+      <div className="flex flex-grow overflow-hidden">
         <Sidebar />
-        <main className={`flex-grow transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+        <main className={`flex-grow transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
           {renderView()}
         </main>
       </div>

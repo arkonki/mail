@@ -35,7 +35,7 @@ interface NavItemProps {
   icon: React.ReactNode;
   isActive: boolean;
   onClick: () => void;
-  isSidebarOpen?: boolean;
+  isSidebarCollapsed?: boolean;
   onDrop?: (e: React.DragEvent) => void;
   isDroppable?: boolean;
   onRename?: (newName: string) => void;
@@ -43,7 +43,7 @@ interface NavItemProps {
   isUserFolder?: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSidebarOpen, onDrop, isDroppable = true, onRename, onDelete, isUserFolder }) => {
+const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSidebarCollapsed, onDrop, isDroppable = true, onRename, onDelete, isUserFolder }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingName, setEditingName] = useState(name);
@@ -77,7 +77,7 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
       setIsEditing(false);
   }
 
-  const justifyContent = !isSidebarOpen ? 'justify-center' : 'justify-between';
+  const justifyContent = isSidebarCollapsed ? 'justify-center' : 'justify-between';
   const baseClasses = `group relative flex items-center ${justifyContent} px-4 py-2 my-1 text-sm rounded-full cursor-pointer transition-all duration-200 ease-in-out`;
   const activeClasses = 'bg-primary text-white font-bold';
   const inactiveClasses = 'text-gray-700 dark:text-dark-on-surface hover:bg-gray-200 dark:hover:bg-dark-surface';
@@ -106,17 +106,17 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      title={!isSidebarOpen ? name : undefined}
+      title={isSidebarCollapsed ? name : undefined}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className={`flex items-center min-w-0 ${!isSidebarOpen ? '' : 'space-x-4 flex-grow'}`}>
+      <div className={`flex items-center min-w-0 ${isSidebarCollapsed ? '' : 'space-x-4 flex-grow'}`}>
         {icon}
-        {isSidebarOpen && <span className="truncate">{name}</span>}
+        {!isSidebarCollapsed && <span className="truncate">{name}</span>}
       </div>
-       {isUserFolder && isSidebarOpen && isHovered && (
+       {isUserFolder && !isSidebarCollapsed && isHovered && (
         <div className="flex items-center">
             <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"><PencilIcon className="w-4 h-4" /></button>
             <button onClick={(e) => { e.stopPropagation(); if (onDelete) onDelete(); }} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"><TrashIcon className="w-4 h-4" /></button>
@@ -128,7 +128,7 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
 
 
 const Sidebar: React.FC = () => {
-  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarOpen, moveConversations, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, view, setView } = useAppContext();
+  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarCollapsed, moveConversations, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, view } = useAppContext();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
 
@@ -164,16 +164,16 @@ const Sidebar: React.FC = () => {
   const systemFolders = Object.values(Folder).filter(f => f !== Folder.DRAFTS && f !== Folder.SCHEDULED);
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-20 flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-transform transform md:relative md:translate-x-0 duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${!isSidebarOpen ? 'w-20' : 'w-64'}`}>
+    <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
       <div>
         <div className="p-2">
           <button 
             onClick={handleComposeClick}
             className={`flex items-center w-full px-4 py-3 space-x-2 font-semibold text-gray-700 dark:text-gray-800 transition-all duration-150 bg-compose-accent rounded-2xl hover:shadow-lg justify-center`}
-            title={!isSidebarOpen ? 'Compose' : undefined}
+            title={isSidebarCollapsed ? 'Compose' : undefined}
             >
             <PencilIcon className="w-6 h-6" />
-            {isSidebarOpen && <span>Compose</span>}
+            {!isSidebarCollapsed && <span>Compose</span>}
           </button>
         </div>
         <nav className="mt-4">
@@ -185,22 +185,13 @@ const Sidebar: React.FC = () => {
                 icon={getSystemFolderIcon(folder)}
                 isActive={currentFolder === folder && view === 'mail'}
                 onClick={() => handleFolderClick(folder)}
-                isSidebarOpen={isSidebarOpen}
+                isSidebarCollapsed={isSidebarCollapsed}
                 onDrop={(e) => handleDrop(e, folder)}
               />
             ))}
-             <NavItem
-                key="contacts"
-                name="Contacts"
-                icon={<AddressBookIcon className="w-5 h-5" />}
-                isActive={view === 'contacts'}
-                onClick={() => setView('contacts')}
-                isSidebarOpen={isSidebarOpen}
-                isDroppable={false}
-              />
           </ul>
           <div className="mt-4 pt-4 border-t border-outline dark:border-dark-outline">
-              <h3 className={`px-4 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2 ${!isSidebarOpen ? 'text-center' : ''}`}>{!isSidebarOpen ? "F" : "Folders"}</h3>
+              <h3 className={`px-4 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2 ${isSidebarCollapsed ? 'text-center' : ''}`}>{isSidebarCollapsed ? "F" : "Folders"}</h3>
               <ul>
                 {userFolders.map(folder => (
                    <NavItem
@@ -209,14 +200,14 @@ const Sidebar: React.FC = () => {
                     icon={getSystemFolderIcon(folder.name)}
                     isActive={currentFolder === folder.name && view === 'mail'}
                     onClick={() => handleFolderClick(folder.name)}
-                    isSidebarOpen={isSidebarOpen}
+                    isSidebarCollapsed={isSidebarCollapsed}
                     onDrop={(e) => handleDrop(e, folder.name)}
                     onRename={(newName) => renameUserFolder(folder.id, newName)}
                     onDelete={() => deleteUserFolder(folder.id)}
                     isUserFolder
                   />
                 ))}
-                {isCreatingFolder && isSidebarOpen && (
+                {isCreatingFolder && !isSidebarCollapsed && (
                     <li className="px-4 py-1">
                         <form onSubmit={handleCreateFolderSubmit} className="flex items-center">
                             <input
@@ -232,7 +223,7 @@ const Sidebar: React.FC = () => {
                     </li>
                 )}
               </ul>
-              {isSidebarOpen && (
+              {!isSidebarCollapsed && (
                 <button onClick={() => setIsCreatingFolder(true)} className="flex items-center w-full px-4 py-2 mt-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-surface rounded-full">
                     <FolderPlusIcon className="w-5 h-5 mr-4"/>
                     Create new folder
@@ -245,7 +236,7 @@ const Sidebar: React.FC = () => {
             <button 
                 onClick={simulateNewEmail}
                 className="w-full px-4 py-2 text-xs text-center text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                {!isSidebarOpen ? 'New' : 'Simulate New Email'}
+                {isSidebarCollapsed ? 'New' : 'Simulate New Email'}
             </button>
        </div>
     </aside>

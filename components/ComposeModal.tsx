@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { XMarkIcon } from './icons/XMarkIcon';
@@ -28,7 +29,6 @@ const formatFileSize = (bytes: number): string => {
 
 const ComposeModal: React.FC = () => {
   const { composeState, closeCompose, sendEmail, saveDraft, deleteConversation, scheduleEmail, appSettings, contacts } = useAppContext();
-  const { action, email, draftId: initialDraftId, conversationId } = composeState;
   
   const contentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,12 +41,13 @@ const ComposeModal: React.FC = () => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<string | undefined>(initialDraftId);
+  const [currentDraftId, setCurrentDraftId] = useState<string | undefined>(undefined);
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Contact[]>([]);
 
   const debouncedSaveDraft = useDebounce(async () => {
     if (to || subject || body || attachments.length > 0) {
         if (isSavingRef.current) return;
+        const { conversationId } = composeState;
         isSavingRef.current = true;
         const newDraftId = await saveDraft({ to, subject, body, attachments }, currentDraftId, conversationId);
         if(newDraftId) setCurrentDraftId(newDraftId);
@@ -62,36 +63,45 @@ const ComposeModal: React.FC = () => {
 
   useEffect(() => {
     if (composeState.isOpen) {
+        const { action, email, draftId: initialDraftId, recipient, bodyPrefix } = composeState;
+        
         const isDraft = (action === ActionType.DRAFT && email) || email?.folder === Folder.DRAFTS;
-        let initialBody = email?.body || '';
+        let finalBody = '';
 
-        setTo(isDraft ? email.recipientEmail : '');
-        setSubject(isDraft ? (email.subject === '(no subject)' ? '' : email.subject) : '');
-        setAttachments([]);
+        // Reset state for new composition
+        setTo(recipient || '');
+        setSubject('');
         setCurrentDraftId(initialDraftId);
+        setAttachments([]);
 
-        if (action && email && !isDraft) {
-          if (action === ActionType.REPLY) {
+        if (isDraft && email) {
+            setTo(email.recipientEmail);
+            setSubject(email.subject === '(no subject)' ? '' : email.subject);
+            finalBody = email.body;
+            // Note: can't restore File objects from mock data for attachments
+        } else if (action === ActionType.REPLY && email) {
             setTo(email.senderEmail);
             setSubject(email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`);
             const formattedDate = new Date(email.timestamp).toLocaleString();
-            initialBody = `<br><br><blockquote class="dark:border-gray-600">On ${formattedDate}, ${email.senderName} &lt;${email.senderEmail}&gt; wrote:<br>${email.body}</blockquote>`;
-          } else if (action === ActionType.FORWARD) {
-            setTo('');
+            const replyContent = bodyPrefix ? `<p>${bodyPrefix}</p>` : '<p><br></p>';
+            const signature = appSettings.signature.isEnabled ? `<br><br>${appSettings.signature.body}` : '';
+            finalBody = `${replyContent}${signature}<br><blockquote class="dark:border-gray-600">On ${formattedDate}, ${email.senderName} &lt;${email.senderEmail}&gt; wrote:<br>${email.body}</blockquote>`;
+        } else if (action === ActionType.FORWARD && email) {
             setSubject(email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`);
             const formattedDate = new Date(email.timestamp).toLocaleString();
-            initialBody = `<br><br><blockquote class="dark:border-gray-600">--- Forwarded message ---<br><b>From:</b> ${email.senderName} &lt;${email.senderEmail}&gt;<br><b>Date:</b> ${formattedDate}<br><b>Subject:</b> ${email.subject}<br><br>${email.body}</blockquote>`;
-          }
+            const signature = appSettings.signature.isEnabled ? `<br><br>${appSettings.signature.body}` : '';
+            finalBody = `<p><br></p>${signature}<br><blockquote class="dark:border-gray-600">--- Forwarded message ---<br><b>From:</b> ${email.senderName} &lt;${email.senderEmail}&gt;<br><b>Date:</b> ${formattedDate}<br><b>Subject:</b> ${email.subject}<br><br>${email.body}</blockquote>`;
+        } else {
+            // New message
+            finalBody = appSettings.signature.isEnabled ? `<p><br></p><br>${appSettings.signature.body}` : '';
         }
-        
-        const finalBody = initialBody + (action !== ActionType.REPLY && action !== ActionType.FORWARD && appSettings.signature.isEnabled ? `<br><br>${appSettings.signature.body}` : '');
-        setBody(finalBody);
 
+        setBody(finalBody);
         if (contentRef.current) {
-          contentRef.current.innerHTML = finalBody;
+            contentRef.current.innerHTML = finalBody;
         }
     }
-  }, [composeState.isOpen, action, email, initialDraftId, appSettings.signature]);
+  }, [composeState, appSettings.signature]);
 
   const handleBodyChange = (e: React.FormEvent<HTMLDivElement>) => {
     const editor = e.currentTarget;
@@ -103,20 +113,20 @@ const ComposeModal: React.FC = () => {
   const removeAttachment = (fileName: string) => { setAttachments(prev => prev.filter(file => file.name !== fileName)); };
 
   const handleSend = () => {
-    sendEmail({ to, subject, body, attachments }, currentDraftId, conversationId);
+    sendEmail({ to, subject, body, attachments }, currentDraftId, composeState.conversationId);
     closeCompose();
   };
   
   const handleSchedule = (date: Date) => {
-    scheduleEmail({ to, subject, body, attachments, scheduledTime: date }, currentDraftId, conversationId);
+    scheduleEmail({ to, subject, body, attachments, scheduledTime: date }, currentDraftId, composeState.conversationId);
     setIsSchedulePopoverOpen(false);
     closeCompose();
   }
 
   const handleDiscard = () => {
-    if (currentDraftId && conversationId) {
-        const convToDelete = email?.conversationId || conversationId;
-        deleteConversation([convToDelete]);
+    if (currentDraftId) {
+        const convToDelete = composeState.email?.conversationId || composeState.conversationId;
+        if (convToDelete) deleteConversation([convToDelete]);
     }
     closeCompose();
   }
@@ -149,7 +159,7 @@ const ComposeModal: React.FC = () => {
 
   return (
     <div 
-        className="fixed inset-0 md:bottom-0 md:right-4 md:inset-auto md:w-full md:max-w-2xl z-40"
+        className="fixed bottom-0 right-4 w-full max-w-2xl z-40"
         onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
     >
       <style>{`
@@ -159,14 +169,14 @@ const ComposeModal: React.FC = () => {
           pointer-events: none;
         }
       `}</style>
-      <div ref={modalRef} className="bg-white dark:bg-dark-surface-container md:rounded-t-lg shadow-2xl border-gray-300 dark:border-dark-outline md:border flex flex-col h-full md:h-[60vh] relative">
+      <div ref={modalRef} className="bg-white dark:bg-dark-surface-container rounded-t-lg shadow-2xl border-gray-300 dark:border-dark-outline border flex flex-col h-[60vh] relative">
         {isDraggingOver && (
-            <div className="absolute inset-0 bg-blue-100 bg-opacity-80 border-2 border-dashed border-blue-500 md:rounded-t-lg flex items-center justify-center z-10 pointer-events-none">
+            <div className="absolute inset-0 bg-blue-100 bg-opacity-80 border-2 border-dashed border-blue-500 rounded-t-lg flex items-center justify-center z-10 pointer-events-none">
                 <p className="text-blue-600 font-bold text-lg">Drop to attach</p>
             </div>
         )}
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-700 dark:bg-gray-800 text-white md:rounded-t-lg">
-          <h3 className="text-sm font-semibold">{action ? (subject || "Message") : 'New Message'}</h3>
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-700 dark:bg-gray-800 text-white rounded-t-lg">
+          <h3 className="text-sm font-semibold">{composeState.action ? (subject || "Message") : 'New Message'}</h3>
           <button onClick={closeCompose} className="p-1 rounded-full hover:bg-gray-600"><XMarkIcon className="w-5 h-5" /></button>
         </div>
         <div className="p-4 space-y-2 border-b border-gray-200 dark:border-dark-outline relative">
@@ -209,15 +219,15 @@ const ComposeModal: React.FC = () => {
                 </ul>
             </div>
         )}
-        <div className="flex items-center justify-between p-2 md:p-4 bg-white dark:bg-dark-surface-container border-t border-gray-200 dark:border-dark-outline">
-          <div className="flex items-center space-x-1 md:space-x-2 relative">
+        <div className="flex items-center justify-between p-4 bg-white dark:bg-dark-surface-container border-t border-gray-200 dark:border-dark-outline">
+          <div className="flex items-center space-x-2 relative">
               <div className="flex rounded-md">
-                 <button onClick={handleSend} className="px-4 md:px-6 py-2 text-sm font-bold text-white bg-primary rounded-l-md hover:bg-primary-hover disabled:bg-gray-400" disabled={!to && !subject && !body}>Send</button>
+                 <button onClick={handleSend} className="px-6 py-2 text-sm font-bold text-white bg-primary rounded-l-md hover:bg-primary-hover disabled:bg-gray-400" disabled={!to && !subject && !body}>Send</button>
                  <button onClick={() => setIsSchedulePopoverOpen(p => !p)} className="px-2 py-2 text-white bg-primary rounded-r-md border-l border-blue-400 hover:bg-primary-hover"><ChevronDownIcon className="w-4 h-4"/></button>
               </div>
               {isSchedulePopoverOpen && <ScheduleSendPopover onSchedule={handleSchedule} onClose={() => setIsSchedulePopoverOpen(false)} />}
               
-              <div className="hidden sm:flex">
+              <div className="flex">
                 <RichTextToolbar />
               </div>
 

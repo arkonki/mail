@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { Conversation, Folder, ActionType, Email } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -12,8 +13,8 @@ interface ConversationListItemProps {
 }
 
 const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation }) => {
-  const { selectedConversationId, setSelectedConversationId, toggleStar, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, moveConversations } = useAppContext();
-  const isSelectedForView = selectedConversationId === conversation.id;
+  const { selectedConversationId, setSelectedConversationId, toggleStar, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, moveConversations, focusedConversationId } = useAppContext();
+  const isFocused = focusedConversationId === conversation.id;
   const isChecked = selectedConversationIds.has(conversation.id);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
@@ -22,7 +23,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
 
   const handleContainerClick = () => {
     if (isDraftOrScheduled) {
-      openCompose(ActionType.DRAFT, latestEmail);
+      openCompose({ action: ActionType.DRAFT, email: latestEmail });
     } else {
       setSelectedConversationId(conversation.id);
       if (!conversation.isRead) {
@@ -94,7 +95,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`group flex items-center px-2 py-3 border-b border-outline dark:border-dark-outline transition-colors duration-150 relative ${
-        isSelectedForView ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-gray-100 dark:hover:bg-dark-surface-container'
+        isFocused ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-gray-100 dark:hover:bg-dark-surface-container'
       } ${!conversation.isRead && !isDraftOrScheduled ? 'bg-white dark:bg-dark-surface font-bold' : 'bg-surface dark:bg-dark-surface'}`}
     >
         <div className="flex items-center pl-2 pr-4" onClick={handleCheckboxClick}>
