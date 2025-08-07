@@ -11,7 +11,8 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "server.ts"
+    "server.ts",
+    "netlify/functions/api.ts"
   ],
   "exclude": [
     "node_modules"
