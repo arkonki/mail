@@ -1,5 +1,5 @@
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
@@ -15,7 +15,7 @@ interface Address {
     address?: string;
 }
 
-const app = express();
+const app: Express = express();
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:8080',
     credentials: true,
@@ -186,7 +186,7 @@ app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) =
         const emails: any[] = [];
 
         for (const item of messages) {
-            const rawMail = item.parts.find(part => part.which === '')?.body;
+            const rawMail = item.parts.find((part: { which: string; body: string }) => part.which === '')?.body;
             if (!rawMail) continue;
             
             const mail: ParsedMail = await simpleParser(rawMail);
