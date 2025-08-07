@@ -22,7 +22,7 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggle: () => void; onReply: (email: Email) => void; onForward: (email: Email) => void; onStar: (conversationId: string, isStarred: boolean) => void;}> = ({ email, isExpanded, onToggle, onReply, onForward, onStar }) => {
+const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggle: () => void; onReply: (email: Email) => void; onForward: (email: Email) => void; }> = ({ email, isExpanded, onToggle, onReply, onForward }) => {
     const formatDate = (dateString: string) => new Date(dateString).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' });
 
     return (
@@ -44,9 +44,6 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
                     <div className="border-t border-outline dark:border-dark-outline pt-4 flex justify-between items-start">
                          <p className="text-sm text-gray-500 dark:text-gray-400">to {email.recipientEmail}</p>
                          <div className="flex items-center">
-                            <button onClick={() => onStar(email.conversationId, email.isStarred)} className="p-2 ml-4 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20">
-                                {email.isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400" />}
-                            </button>
                              <button onClick={() => onReply(email)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Reply"><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                             <button onClick={() => onForward(email)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Forward"><ArrowUturnRightIcon className="w-5 h-5"/></button>
                          </div>
@@ -160,7 +157,6 @@ const EmailView: React.FC = () => {
                 onToggle={() => handleToggleExpand(email.id)}
                 onReply={(email) => openCompose({ action: ActionType.REPLY, email })}
                 onForward={(email) => openCompose({ action: ActionType.FORWARD, email })}
-                onStar={toggleStar}
             />
         ))}
       </div>

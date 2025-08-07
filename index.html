@@ -52,10 +52,9 @@
 {
   "imports": {
     "react": "https://esm.sh/react@^19.1.1",
-    "react/": "https://esm.sh/react@^19.1.1/",
     "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react/": "https://esm.sh/react@^19.1.1/",
     "react-dom": "https://esm.sh/react-dom@^19.1.1",
-    "@google/genai": "https://esm.sh/@google/genai@^1.13.0",
     "express": "https://esm.sh/express@^5.1.0",
     "cors": "https://esm.sh/cors@^2.8.5",
     "dotenv": "https://esm.sh/dotenv@^17.2.1",
@@ -63,7 +62,9 @@
     "imap-simple": "https://esm.sh/imap-simple@^5.1.0",
     "nodemailer": "https://esm.sh/nodemailer@^7.0.5",
     "mailparser": "https://esm.sh/mailparser@^3.7.4",
-    "serverless-http": "https://esm.sh/serverless-http@^3.2.0"
+    "serverless-http": "https://esm.sh/serverless-http@^3.2.0",
+    "vite": "https://esm.sh/vite@^7.1.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.0.0"
   }
 }
 </script>
@@ -72,6 +73,6 @@
   <body class="bg-surface text-on-surface dark:bg-dark-surface dark:text-dark-on-surface antialiased">
     <div id="root"></div>
     <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
