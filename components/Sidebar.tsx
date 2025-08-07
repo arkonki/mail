@@ -8,46 +8,129 @@ import { PaperAirplaneIcon } from './icons/PaperAirplaneIcon';
 import { DocumentIcon } from './icons/DocumentIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { FolderIcon } from './icons/FolderIcon';
+import { Folder } from '../types';
+import { ClockIcon } from './icons/ClockIcon';
+import { FolderPlusIcon } from './icons/FolderPlusIcon';
+import { XMarkIcon } from './icons/XMarkIcon';
+import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
+import { AddressBookIcon } from './icons/AddressBookIcon';
+
 
 const getSystemFolderIcon = (folderName: string): React.ReactNode => {
-    const lowerCaseName = folderName.toLowerCase();
-    if (lowerCaseName.includes('inbox')) return <InboxIcon className="w-5 h-5" />;
-    if (lowerCaseName.includes('sent')) return <PaperAirplaneIcon className="w-5 h-5" />;
-    if (lowerCaseName.includes('drafts')) return <DocumentIcon className="w-5 h-5" />;
-    if (lowerCaseName.includes('trash') || lowerCaseName.includes('bin')) return <TrashIcon className="w-5 h-5" />;
-    if (lowerCaseName.includes('starred')) return <StarIcon className="w-5 h-5" />;
-    return <FolderIcon className="w-5 h-5" />;
+    switch (folderName) {
+        case Folder.INBOX: return <InboxIcon className="w-5 h-5" />;
+        case Folder.STARRED: return <StarIcon className="w-5 h-5" />;
+        case Folder.SNOOZED: return <ClockIcon className="w-5 h-5" />;
+        case Folder.SENT: return <PaperAirplaneIcon className="w-5 h-5" />;
+        case Folder.SCHEDULED: return <ClockIcon className="w-5 h-5" />;
+        case Folder.SPAM: return <ExclamationCircleIcon className="w-5 h-5" />;
+        case Folder.DRAFTS: return <DocumentIcon className="w-5 h-5" />;
+        case Folder.TRASH: return <TrashIcon className="w-5 h-5" />;
+        default: return <FolderIcon className="w-5 h-5" />;
+    }
 }
 
-const FolderItem: React.FC<{
-  folderName: string;
+interface NavItemProps {
+  name: string;
+  icon: React.ReactNode;
   isActive: boolean;
   onClick: () => void;
-  isSidebarCollapsed?: boolean;
-}> = ({ folderName, isActive, onClick, isSidebarCollapsed }) => {
-  
-  const justifyContent = isSidebarCollapsed ? 'justify-center' : 'justify-between';
-  const baseClasses = `group flex items-center ${justifyContent} px-4 py-2 my-1 text-sm rounded-full cursor-pointer transition-all duration-200 ease-in-out`;
+  isSidebarOpen?: boolean;
+  onDrop?: (e: React.DragEvent) => void;
+  isDroppable?: boolean;
+  onRename?: (newName: string) => void;
+  onDelete?: () => void;
+  isUserFolder?: boolean;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSidebarOpen, onDrop, isDroppable = true, onRename, onDelete, isUserFolder }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingName, setEditingName] = useState(name);
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const dragCounter = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current++;
+    if(isDroppable) setIsDropTarget(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    if(dragCounter.current === 0) setIsDropTarget(false);
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    dragCounter.current = 0;
+    setIsDropTarget(false);
+    if(onDrop) onDrop(e);
+  };
+
+  const handleRenameSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if(onRename) onRename(editingName);
+      setIsEditing(false);
+  }
+
+  const justifyContent = !isSidebarOpen ? 'justify-center' : 'justify-between';
+  const baseClasses = `group relative flex items-center ${justifyContent} px-4 py-2 my-1 text-sm rounded-full cursor-pointer transition-all duration-200 ease-in-out`;
   const activeClasses = 'bg-primary text-white font-bold';
   const inactiveClasses = 'text-gray-700 dark:text-dark-on-surface hover:bg-gray-200 dark:hover:bg-dark-surface';
+  const dropTargetClasses = isDropTarget ? 'scale-105 bg-blue-200 dark:bg-blue-800 ring-2 ring-primary shadow-lg' : '';
+
+  if(isEditing) {
+      return (
+          <li className={`${baseClasses} ${inactiveClasses}`}>
+              <form onSubmit={handleRenameSubmit} className="flex items-center w-full">
+                  <input 
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                      className="w-full bg-transparent focus:outline-none"
+                  />
+              </form>
+          </li>
+      )
+  }
 
   return (
     <li
-      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${dropTargetClasses}`}
       onClick={onClick}
-      title={isSidebarCollapsed ? folderName : undefined}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={!isSidebarOpen ? name : undefined}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
-      <div className={`flex items-center min-w-0 ${isSidebarCollapsed ? '' : 'space-x-4 flex-grow'}`}>
-        {getSystemFolderIcon(folderName)}
-        {!isSidebarCollapsed && <span className="truncate">{folderName}</span>}
+      <div className={`flex items-center min-w-0 ${!isSidebarOpen ? '' : 'space-x-4 flex-grow'}`}>
+        {icon}
+        {isSidebarOpen && <span className="truncate">{name}</span>}
       </div>
+       {isUserFolder && isSidebarOpen && isHovered && (
+        <div className="flex items-center">
+            <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"><PencilIcon className="w-4 h-4" /></button>
+            <button onClick={(e) => { e.stopPropagation(); if (onDelete) onDelete(); }} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"><TrashIcon className="w-4 h-4" /></button>
+        </div>
+      )}
     </li>
   );
 };
 
 
 const Sidebar: React.FC = () => {
-  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarCollapsed } = useAppContext();
+  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarOpen, moveConversations, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, view, setView } = useAppContext();
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   const handleFolderClick = (folder: string) => {
     setCurrentFolder(folder);
@@ -57,33 +140,114 @@ const Sidebar: React.FC = () => {
     openCompose();
   }
 
+  const handleDrop = (e: React.DragEvent, folderName: string) => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      if (data.conversationIds) {
+        moveConversations(data.conversationIds, folderName);
+      }
+    } catch(err) {
+      console.error("Failed to handle drop:", err);
+    }
+  };
+  
+  const handleCreateFolderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if(newFolderName.trim()) {
+        createUserFolder(newFolderName.trim());
+        setNewFolderName("");
+        setIsCreatingFolder(false);
+    }
+  }
+
+  const systemFolders = Object.values(Folder).filter(f => f !== Folder.DRAFTS && f !== Folder.SCHEDULED);
+
   return (
-    <aside className={`flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+    <aside className={`fixed inset-y-0 left-0 z-20 flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-transform transform md:relative md:translate-x-0 duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${!isSidebarOpen ? 'w-20' : 'w-64'}`}>
       <div>
         <div className="p-2">
           <button 
             onClick={handleComposeClick}
             className={`flex items-center w-full px-4 py-3 space-x-2 font-semibold text-gray-700 dark:text-gray-800 transition-all duration-150 bg-compose-accent rounded-2xl hover:shadow-lg justify-center`}
-            title={isSidebarCollapsed ? 'Compose' : undefined}
+            title={!isSidebarOpen ? 'Compose' : undefined}
             >
             <PencilIcon className="w-6 h-6" />
-            {!isSidebarCollapsed && <span>Compose</span>}
+            {isSidebarOpen && <span>Compose</span>}
           </button>
         </div>
         <nav className="mt-4">
           <ul>
-            {userFolders.map((folder) => (
-              <FolderItem 
-                key={folder.id}
-                folderName={folder.name}
-                isActive={currentFolder === folder.name}
-                onClick={() => handleFolderClick(folder.name)}
-                isSidebarCollapsed={isSidebarCollapsed}
+            {systemFolders.map((folder) => (
+              <NavItem
+                key={folder}
+                name={folder}
+                icon={getSystemFolderIcon(folder)}
+                isActive={currentFolder === folder && view === 'mail'}
+                onClick={() => handleFolderClick(folder)}
+                isSidebarOpen={isSidebarOpen}
+                onDrop={(e) => handleDrop(e, folder)}
               />
             ))}
+             <NavItem
+                key="contacts"
+                name="Contacts"
+                icon={<AddressBookIcon className="w-5 h-5" />}
+                isActive={view === 'contacts'}
+                onClick={() => setView('contacts')}
+                isSidebarOpen={isSidebarOpen}
+                isDroppable={false}
+              />
           </ul>
+          <div className="mt-4 pt-4 border-t border-outline dark:border-dark-outline">
+              <h3 className={`px-4 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2 ${!isSidebarOpen ? 'text-center' : ''}`}>{!isSidebarOpen ? "F" : "Folders"}</h3>
+              <ul>
+                {userFolders.map(folder => (
+                   <NavItem
+                    key={folder.id}
+                    name={folder.name}
+                    icon={getSystemFolderIcon(folder.name)}
+                    isActive={currentFolder === folder.name && view === 'mail'}
+                    onClick={() => handleFolderClick(folder.name)}
+                    isSidebarOpen={isSidebarOpen}
+                    onDrop={(e) => handleDrop(e, folder.name)}
+                    onRename={(newName) => renameUserFolder(folder.id, newName)}
+                    onDelete={() => deleteUserFolder(folder.id)}
+                    isUserFolder
+                  />
+                ))}
+                {isCreatingFolder && isSidebarOpen && (
+                    <li className="px-4 py-1">
+                        <form onSubmit={handleCreateFolderSubmit} className="flex items-center">
+                            <input
+                                type="text"
+                                value={newFolderName}
+                                onChange={(e) => setNewFolderName(e.target.value)}
+                                placeholder="New folder name"
+                                autoFocus
+                                className="w-full py-1 text-sm bg-transparent border-b border-primary focus:outline-none"
+                            />
+                             <button type="button" onClick={() => setIsCreatingFolder(false)} className="p-1"><XMarkIcon className="w-4 h-4" /></button>
+                        </form>
+                    </li>
+                )}
+              </ul>
+              {isSidebarOpen && (
+                <button onClick={() => setIsCreatingFolder(true)} className="flex items-center w-full px-4 py-2 mt-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-surface rounded-full">
+                    <FolderPlusIcon className="w-5 h-5 mr-4"/>
+                    Create new folder
+                </button>
+              )}
+          </div>
         </nav>
       </div>
+       <div className="p-2">
+            <button 
+                onClick={simulateNewEmail}
+                className="w-full px-4 py-2 text-xs text-center text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                {!isSidebarOpen ? 'New' : 'Simulate New Email'}
+            </button>
+       </div>
     </aside>
   );
 };

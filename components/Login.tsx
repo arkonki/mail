@@ -2,47 +2,23 @@
 import React, { useState } from 'react';
 import { MailIcon } from './icons/MailIcon';
 
-export interface UserCredentials {
-  email: string;
-  pass: string;
-}
-
 interface LoginProps {
-  onLoginSuccess: (credentials: UserCredentials) => void;
+  onLoginSuccess: () => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('demo@example.com');
+  const [password, setPassword] = useState('password');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
-    
-    try {
-        const response = await fetch('http://localhost:3001/api/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Login failed. Please check your credentials.');
-        }
-
-        onLoginSuccess({ email, pass: password });
-
-    } catch (err: any) {
-        setError(err.message);
-    } finally {
-        setIsLoading(false);
-    }
+    // Simulate a network request
+    setTimeout(() => {
+      onLoginSuccess();
+      setIsLoading(false);
+    }, 1000);
   };
 
   return (
@@ -51,15 +27,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <div className="text-center">
             <MailIcon className="w-12 h-12 mx-auto text-primary"/>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Sign in to your mail server
+            Webmail Client
           </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            This is a frontend demonstration. No real login is required.
+          </p>
         </div>
-
-        {error && (
-            <div className="p-4 text-sm text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-900/50 rounded-lg">
-                <p>{error}</p>
-            </div>
-        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">

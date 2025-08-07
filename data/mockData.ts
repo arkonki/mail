@@ -1,4 +1,5 @@
-import { Email, Folder, UserFolder } from '../types';
+
+import { Email, Folder, UserFolder, Contact } from '../types';
 
 const getFutureDate = (minutes: number): string => {
   return new Date(new Date().getTime() + minutes * 60000).toISOString();
@@ -7,6 +8,16 @@ const getFutureDate = (minutes: number): string => {
 export const mockUserFolders: UserFolder[] = [
   { id: 'folder-1', name: 'Projects' },
   { id: 'folder-2', name: 'Receipts' },
+];
+
+export const mockContacts: Contact[] = [
+  { id: 'contact-1', name: 'Alex Johnson', email: 'alex.j@example.com' },
+  { id: 'contact-2', name: 'Jane Doe', email: 'jane.d@example.com' },
+  { id: 'contact-3', name: 'Sarah Lee', email: 'sarah.k@example.com' },
+  { id: 'contact-4', name: 'GitHub', email: 'noreply@github.com' },
+  { id: 'contact-5', name: 'Vercel', email: 'notifications@vercel.com' },
+  { id: 'contact-6', name: 'Figma', email: 'team@figma.com' },
+  { id: 'contact-7', name: 'Mom', email: 'mom@example.com' },
 ];
 
 export const mockEmails: Email[] = [
@@ -79,7 +90,7 @@ export const mockEmails: Email[] = [
   {
     id: 'conv-2-reply2',
     conversationId: 'conv-2',
-    senderName: 'Sarah',
+    senderName: 'Sarah Lee',
     senderEmail: 'sarah.k@example.com',
     recipientEmail: 'you@example.com',
     subject: 'Project Alpha - Meeting Follow-up',

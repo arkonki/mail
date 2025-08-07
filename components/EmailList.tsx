@@ -7,18 +7,30 @@ import { MailIcon } from './icons/MailIcon';
 import { InboxIcon } from './icons/InboxIcon';
 import { FolderArrowDownIcon } from './icons/FolderArrowDownIcon';
 import MoveToPopover from './MoveToPopover';
-import { SpinnerIcon } from './icons/SpinnerIcon';
+import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
+import { ClockIcon } from './icons/ClockIcon';
+import SnoozePopover from './SnoozePopover';
 
 const BulkActionBar = () => {
-    const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations } = useAppContext();
+    const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations, markAsSpam, snoozeConversation } = useAppContext();
     const [isMovePopoverOpen, setIsMovePopoverOpen] = useState(false);
-    const popoverButtonRef = React.useRef<HTMLButtonElement>(null);
+    const [isSnoozePopoverOpen, setIsSnoozePopoverOpen] = useState(false);
     const count = selectedConversationIds.size;
 
     const handleMove = (folder: string) => {
         moveConversations(Array.from(selectedConversationIds), folder);
         setIsMovePopoverOpen(false);
     };
+
+    const handleSnooze = (date: Date) => {
+        snoozeConversation(Array.from(selectedConversationIds), date);
+        setIsSnoozePopoverOpen(false);
+    }
+    
+    const handleMarkAsSpam = () => {
+        markAsSpam(Array.from(selectedConversationIds));
+        deselectAllConversations();
+    }
 
     return (
         <div className="flex items-center justify-between p-2 bg-primary/10 dark:bg-primary/20 border-b border-outline dark:border-dark-outline">
@@ -35,7 +47,16 @@ const BulkActionBar = () => {
                     <InboxIcon className="w-5 h-5" />
                 </button>
                 <div className="relative">
-                    <button ref={popoverButtonRef} onClick={() => setIsMovePopoverOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Move to folder">
+                    <button onClick={() => setIsSnoozePopoverOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Snooze">
+                        <ClockIcon className="w-5 h-5" />
+                    </button>
+                    {isSnoozePopoverOpen && <SnoozePopover onSnooze={handleSnooze} onClose={() => setIsSnoozePopoverOpen(false)} />}
+                </div>
+                <button onClick={handleMarkAsSpam} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mark as spam">
+                    <ExclamationCircleIcon className="w-5 h-5" />
+                </button>
+                <div className="relative">
+                    <button onClick={() => setIsMovePopoverOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Move to folder">
                         <FolderArrowDownIcon className="w-5 h-5" />
                     </button>
                     {isMovePopoverOpen && <MoveToPopover onMove={handleMove} onClose={() => setIsMovePopoverOpen(false)} />}
@@ -50,7 +71,7 @@ const BulkActionBar = () => {
 
 
 const EmailList: React.FC = () => {
-  const { currentFolder, selectedConversationId, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations, isLoading, error } = useAppContext();
+  const { currentFolder, selectedConversationId, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations } = useAppContext();
   const isSearching = searchQuery.length > 0;
   
   const allDisplayedIds = displayedConversations.map(c => c.id);
@@ -70,20 +91,6 @@ const EmailList: React.FC = () => {
   const showBulkActions = selectedConversationIds.size > 0;
 
   const renderContent = () => {
-    if (isLoading) {
-        return (
-            <div className="flex-grow flex items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
-                <SpinnerIcon className="w-8 h-8 animate-spin" />
-            </div>
-        );
-    }
-    if (error) {
-        return (
-            <div className="flex-grow flex items-center justify-center p-8 text-center text-red-500">
-                <p>Error: {error}</p>
-            </div>
-        );
-    }
     if (displayedConversations.length === 0) {
         return (
             <div className="flex-grow flex items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
@@ -101,7 +108,7 @@ const EmailList: React.FC = () => {
   };
 
   return (
-    <div className={`flex-shrink-0 bg-white dark:bg-dark-surface border-r border-outline dark:border-dark-outline overflow-y-auto ${selectedConversationId ? 'w-1/3' : 'w-full'} flex flex-col`}>
+    <div className={`flex-shrink-0 bg-white dark:bg-dark-surface border-r border-outline dark:border-dark-outline overflow-y-auto w-full md:w-1/3 flex-col ${selectedConversationId ? 'hidden md:flex' : 'flex'}`}>
         { showBulkActions ? <BulkActionBar /> : (
             <div className="p-4 border-b border-outline dark:border-dark-outline flex items-center space-x-4">
                 <input

@@ -42,16 +42,10 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
     };
   }, []);
 
-  const handleLogoutClick = async (e: React.MouseEvent) => {
+  const handleLogoutClick = (e: React.MouseEvent) => {
       e.preventDefault();
-      try {
-          await fetch('http://localhost:3001/api/logout', { method: 'POST' });
-      } catch (error) {
-          console.error("Logout failed on server:", error);
-      } finally {
-          onLogout();
-          setIsMenuOpen(false);
-      }
+      onLogout();
+      setIsMenuOpen(false);
   }
 
   const handleSettingsClick = (e: React.MouseEvent) => {
@@ -61,18 +55,18 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   }
 
   return (
-    <header className="relative z-30 flex items-center justify-between px-4 py-2 bg-surface-container dark:bg-dark-surface-container border-b border-outline dark:border-dark-outline shadow-sm">
-      <div className="flex items-center space-x-4">
+    <header className="relative z-30 flex items-center justify-between px-2 md:px-4 py-2 bg-surface-container dark:bg-dark-surface-container border-b border-outline dark:border-dark-outline shadow-sm flex-shrink-0">
+      <div className="flex items-center space-x-2 md:space-x-4">
         <button onClick={toggleSidebar} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
           <MenuIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
         </button>
         <div className="flex items-center space-x-2">
             <MailIcon className="w-8 h-8 text-primary"/>
-            <span className="text-xl text-gray-700 dark:text-gray-200">Webmail</span>
+            <span className="hidden sm:inline text-xl text-gray-700 dark:text-gray-200">Webmail</span>
         </div>
       </div>
       
-      <div className="flex-grow max-w-2xl mx-4">
+      <div className="flex-grow max-w-2xl mx-2 md:mx-4">
         <form onSubmit={handleSearchSubmit} className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <SearchIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
@@ -96,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         </form>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1 md:space-x-2">
          <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             {theme === 'light' ? <MoonIcon className="w-6 h-6 text-gray-600"/> : <SunIcon className="w-6 h-6 text-yellow-400"/>}
          </button>

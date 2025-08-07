@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import Login, { UserCredentials } from './components/Login';
+import Login from './components/Login';
 import MainLayout from './components/MainLayout';
 import { AppContextProvider, useAppContext } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
@@ -24,7 +24,7 @@ const ThemedMailClient: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
 // This component is rendered OUTSIDE the context provider.
 // It gets theme info from localStorage to prevent a flash of incorrect theme.
-const ThemedLogin: React.FC<{ onLoginSuccess: (creds: UserCredentials) => void }> = ({ onLoginSuccess }) => {
+const ThemedLogin: React.FC<{ onLoginSuccess: () => void }> = ({ onLoginSuccess }) => {
     useEffect(() => {
         const storedTheme = localStorage.getItem('theme');
         const root = window.document.documentElement;
@@ -39,23 +39,23 @@ const ThemedLogin: React.FC<{ onLoginSuccess: (creds: UserCredentials) => void }
 }
 
 const App: React.FC = () => {
-    const [credentials, setCredentials] = useState<UserCredentials | null>(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    const handleLoginSuccess = useCallback((creds: UserCredentials) => {
-        setCredentials(creds);
+    const handleLoginSuccess = useCallback(() => {
+        setIsLoggedIn(true);
     }, []);
 
     const handleLogout = useCallback(() => {
-        setCredentials(null);
+        setIsLoggedIn(false);
         // On logout, we can reset the theme to default light or just remove the class
         window.document.documentElement.classList.remove('dark');
     }, []);
 
     return (
         <ToastProvider>
-             <div className="h-screen w-screen font-sans">
-                {credentials ? (
-                    <AppContextProvider credentials={credentials}>
+             <div className="h-screen w-screen font-sans overflow-x-hidden">
+                {isLoggedIn ? (
+                    <AppContextProvider>
                         <ThemedMailClient onLogout={handleLogout} />
                     </AppContextProvider>
                 ) : (

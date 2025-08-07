@@ -1,8 +1,11 @@
+
 export enum Folder {
   INBOX = 'Inbox',
   STARRED = 'Starred',
+  SNOOZED = 'Snoozed',
   SENT = 'Sent',
   SCHEDULED = 'Scheduled',
+  SPAM = 'Spam',
   DRAFTS = 'Drafts',
   TRASH = 'Trash',
 }
@@ -20,7 +23,7 @@ export interface Attachment {
 
 export interface UserFolder {
   id: string;
-  name: string;
+  name:string;
 }
 
 export interface Email {
@@ -38,6 +41,7 @@ export interface Email {
   folder: string; // Can be a value from Folder enum or a UserFolder name
   attachments?: Attachment[];
   scheduledSendTime?: string;
+  snoozedUntil?: string;
 }
 
 export interface Conversation {
@@ -48,6 +52,7 @@ export interface Conversation {
     lastTimestamp: string;
     isRead: boolean;
     isStarred: boolean;
+    isSnoozed: boolean;
     folder: string;
     hasAttachments: boolean;
 }
@@ -55,6 +60,12 @@ export interface Conversation {
 export interface User {
     email: string;
     name: string;
+}
+
+export interface Contact {
+    id: string;
+    name: string;
+    email: string;
 }
 
 // Settings Types
@@ -74,15 +85,16 @@ export interface AutoResponder {
 export interface Rule {
   id: string;
   condition: {
-    field: 'sender';
+    field: 'sender' | 'recipient' | 'subject';
     operator: 'contains';
     value: string;
   };
   action: {
-    type: 'move';
-    folder: string;
+    type: 'move' | 'star' | 'markAsRead';
+    folder?: string; // only for 'move'
   };
 }
+
 
 export interface AppSettings {
   signature: Signature;
