@@ -1,6 +1,3 @@
-import serverless from 'serverless-http';
-import app from '../../server';
-
-// This file wraps the existing Express app for use with Netlify Functions.
-// The 'handler' export is the entry point for the serverless function.
-export const handler = serverless(app);
+// This file is intentionally left empty.
+// The application is running as a frontend-only demo and does not use Netlify Functions.
+export {};

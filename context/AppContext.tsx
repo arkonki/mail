@@ -299,7 +299,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
         isStarred: false,
         folder: data.scheduleDate ? Folder.SCHEDULED : Folder.SENT,
         attachments: data.attachments.map(f => ({fileName: f.name, fileSize: f.size})),
-        scheduledSendTime: data.scheduleDate ? data.scheduleDate.toISOString() : undefined,
+        scheduledSendTime: data.scheduleDate?.toISOString(),
       };
 
       setEmails(prev => [newEmail, ...prev]);
