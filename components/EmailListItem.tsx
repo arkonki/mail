@@ -43,7 +43,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteConversation(conversation.id);
+    deleteConversation([conversation.id]);
   }
   
   const formatDate = (dateString: string) => {

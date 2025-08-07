@@ -9,9 +9,6 @@ import { StarIcon as StarIconOutline } from './icons/StarIcon';
 import { MailIcon } from './icons/MailIcon';
 import { ActionType, Email } from '../types';
 import { PaperClipIcon } from './icons/PaperClipIcon';
-import { ClockIcon } from './icons/ClockIcon';
-import { SparklesIcon } from './icons/SparklesIcon';
-import { SpinnerIcon } from './icons/SpinnerIcon';
 
 
 const formatFileSize = (bytes: number): string => {
@@ -41,7 +38,7 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
             {isExpanded && (
                 <div className="px-6 pb-6">
                     <div className="border-t border-outline dark:border-dark-outline pt-4 flex justify-between items-start">
-                         <p className="text-sm text-gray-500 dark:text-gray-400">to {email.recipientEmail === 'demo@example.com' ? 'me' : email.recipientEmail}</p>
+                         <p className="text-sm text-gray-500 dark:text-gray-400">to {email.recipientEmail}</p>
                          <div className="flex items-center">
                             <button onClick={() => onStar(email.id)} className="p-2 ml-4 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20">
                                 {email.isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400" />}
@@ -75,10 +72,8 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
 
 
 const EmailView: React.FC = () => {
-  const { conversations, selectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar, summarizeConversation } = useAppContext();
+  const { conversations, selectedConversationId, currentFolder, deleteConversation, openCompose, toggleStar } = useAppContext();
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isSummarizing, setIsSummarizing] = useState(false);
   
   const selectedConversation = conversations.find(c => c.id === selectedConversationId);
 
@@ -86,8 +81,6 @@ const EmailView: React.FC = () => {
     if (selectedConversation) {
       const latestEmailId = selectedConversation.emails[selectedConversation.emails.length - 1].id;
       setExpandedEmails(new Set([latestEmailId]));
-      setSummary(null); // Reset summary when changing conversation
-      setIsSummarizing(false);
     }
   }, [selectedConversation]);
 
@@ -114,15 +107,7 @@ const EmailView: React.FC = () => {
   const handleReply = () => openCompose(ActionType.REPLY, latestEmail);
   const handleForward = () => openCompose(ActionType.FORWARD, latestEmail);
   const handleStarConversation = () => toggleStar(selectedConversation.id, undefined);
-  const handleDeleteConversation = () => deleteConversation(selectedConversation.id);
-
-  const handleSummarize = async () => {
-    setIsSummarizing(true);
-    setSummary(null);
-    const result = await summarizeConversation(selectedConversation.id);
-    setSummary(result);
-    setIsSummarizing(false);
-  }
+  const handleDeleteConversation = () => deleteConversation([selectedConversation.id]);
 
   return (
     <div className="flex-grow flex flex-col bg-gray-50 dark:bg-dark-surface overflow-y-auto">
@@ -130,11 +115,6 @@ const EmailView: React.FC = () => {
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-normal text-on-surface dark:text-dark-on-surface truncate pr-4">{selectedConversation.subject}</h2>
             <div className="flex items-center space-x-2 flex-shrink-0">
-                {selectedConversation.emails.length > 1 && (
-                  <button onClick={handleSummarize} disabled={isSummarizing} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-wait" title="Summarize thread">
-                    {isSummarizing ? <SpinnerIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5"/>}
-                  </button>
-                )}
                 <button onClick={handleStarConversation} className="p-2 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20" title={selectedConversation.isStarred ? 'Unstar conversation' : 'Star conversation'}>
                     {selectedConversation.isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400" />}
                 </button>
@@ -145,16 +125,6 @@ const EmailView: React.FC = () => {
         </div>
       </div>
       <div className="p-6">
-        {summary && (
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <h3 className="flex items-center text-md font-semibold mb-2 text-blue-800 dark:text-blue-200">
-                    <SparklesIcon className="w-5 h-5 mr-2"/>
-                    Summary
-                </h3>
-                <div className="text-sm text-blue-900 dark:text-blue-100 prose prose-sm max-w-none" dangerouslySetInnerHTML={{__html: summary.replace(/\n/g, '<br/>')}}></div>
-            </div>
-        )}
-
         {selectedConversation.emails.map(email => (
             <SingleEmailInThread 
                 key={email.id} 

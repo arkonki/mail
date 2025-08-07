@@ -2,23 +2,47 @@
 import React, { useState } from 'react';
 import { MailIcon } from './icons/MailIcon';
 
+export interface UserCredentials {
+  email: string;
+  pass: string;
+}
+
 interface LoginProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (credentials: UserCredentials) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate network request
-    setTimeout(() => {
-      setIsLoading(false);
-      onLoginSuccess();
-    }, 1500);
+    setError(null);
+    
+    try {
+        const response = await fetch('http://localhost:3001/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Login failed. Please check your credentials.');
+        }
+
+        onLoginSuccess({ email, pass: password });
+
+    } catch (err: any) {
+        setError(err.message);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   return (
@@ -27,17 +51,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <div className="text-center">
             <MailIcon className="w-12 h-12 mx-auto text-primary"/>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Sign in to your account
+            Sign in to your mail server
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Using Webmail Client Demo
-          </p>
         </div>
 
-        <div className="p-4 text-sm text-yellow-800 dark:text-yellow-200 bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 rounded-r-lg">
-          <h3 className="font-bold">Demonstration Notice</h3>
-          <p>This is a frontend UI demonstration. For security reasons, web browsers cannot directly connect to mail servers like IMAP (mail.veebimajutus.ee:993) or SMTP (mail.veebimajutus.ee:465). This login is simulated and will proceed with mock data.</p>
-        </div>
+        {error && (
+            <div className="p-4 text-sm text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                <p>{error}</p>
+            </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
@@ -50,7 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 autoComplete="email"
                 required
                 className="relative block w-full px-3 py-2 text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-300 rounded-md appearance-none dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                placeholder="Email address (e.g., demo@example.com)"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -64,7 +86,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 autoComplete="current-password"
                 required
                 className="relative block w-full px-3 py-2 text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-300 rounded-md appearance-none dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
-                placeholder="Password (any will work)"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

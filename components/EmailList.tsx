@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import ConversationListItem from './EmailListItem';
@@ -6,6 +7,7 @@ import { MailIcon } from './icons/MailIcon';
 import { InboxIcon } from './icons/InboxIcon';
 import { FolderArrowDownIcon } from './icons/FolderArrowDownIcon';
 import MoveToPopover from './MoveToPopover';
+import { SpinnerIcon } from './icons/SpinnerIcon';
 
 const BulkActionBar = () => {
     const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations } = useAppContext();
@@ -48,7 +50,7 @@ const BulkActionBar = () => {
 
 
 const EmailList: React.FC = () => {
-  const { currentFolder, selectedConversationId, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations } = useAppContext();
+  const { currentFolder, selectedConversationId, searchQuery, selectedConversationIds, selectAllConversations, deselectAllConversations, displayedConversations, isLoading, error } = useAppContext();
   const isSearching = searchQuery.length > 0;
   
   const allDisplayedIds = displayedConversations.map(c => c.id);
@@ -67,6 +69,37 @@ const EmailList: React.FC = () => {
   
   const showBulkActions = selectedConversationIds.size > 0;
 
+  const renderContent = () => {
+    if (isLoading) {
+        return (
+            <div className="flex-grow flex items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
+                <SpinnerIcon className="w-8 h-8 animate-spin" />
+            </div>
+        );
+    }
+    if (error) {
+        return (
+            <div className="flex-grow flex items-center justify-center p-8 text-center text-red-500">
+                <p>Error: {error}</p>
+            </div>
+        );
+    }
+    if (displayedConversations.length === 0) {
+        return (
+            <div className="flex-grow flex items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
+              <p>{emptyMessage}</p>
+            </div>
+        );
+    }
+    return (
+        <ul className="flex-grow">
+          {displayedConversations.map((conv) => (
+            <ConversationListItem key={conv.id} conversation={conv} />
+          ))}
+        </ul>
+    );
+  };
+
   return (
     <div className={`flex-shrink-0 bg-white dark:bg-dark-surface border-r border-outline dark:border-dark-outline overflow-y-auto ${selectedConversationId ? 'w-1/3' : 'w-full'} flex flex-col`}>
         { showBulkActions ? <BulkActionBar /> : (
@@ -82,17 +115,7 @@ const EmailList: React.FC = () => {
                 <h2 className="text-lg font-medium text-on-surface dark:text-dark-on-surface">{listTitle}</h2>
             </div>
         )}
-      {displayedConversations.length === 0 ? (
-        <div className="flex-grow flex items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
-          <p>{emptyMessage}</p>
-        </div>
-      ) : (
-        <ul className="flex-grow">
-          {displayedConversations.map((conv) => (
-            <ConversationListItem key={conv.id} conversation={conv} />
-          ))}
-        </ul>
-      )}
+      {renderContent()}
     </div>
   );
 };
