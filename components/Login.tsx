@@ -4,19 +4,14 @@ import { MailIcon } from './icons/MailIcon';
 import { useAppContext } from '../context/AppContext';
 
 const Login: React.FC = () => {
-  const { login, isLoading, loginError } = useAppContext();
+  const { login, isLoading } = useAppContext();
   const [email, setEmail] = useState('test.user@example.com');
   const [password, setPassword] = useState('password');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    await login(email, password);
-    setIsSubmitting(false);
+    login(email, password);
   };
-  
-  const isButtonDisabled = isSubmitting || isLoading;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -66,20 +61,13 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          {loginError && (
-              <div className="p-3 text-sm text-red-700 bg-red-100 border border-red-400 rounded-md dark:bg-red-900/50 dark:text-red-300 dark:border-red-500/50">
-                  <p className="font-bold">Login Failed</p>
-                  <p>{loginError}</p>
-              </div>
-          )}
-
           <div>
             <button
               type="submit"
-              disabled={isButtonDisabled}
+              disabled={isLoading}
               className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md group bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
-              {isButtonDisabled ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>

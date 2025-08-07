@@ -63,10 +63,9 @@ interface AppContextType {
   contacts: Contact[];
   selectedContactId: string | null;
   isLoading: boolean;
-  loginError: string | null;
   
   // Auth
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => void;
   logout: () => void;
   checkUserSession: () => void;
   
@@ -78,7 +77,7 @@ interface AppContextType {
   // Compose
   openCompose: (config?: Partial<Omit<ComposeState, 'isOpen'>>) => void;
   closeCompose: () => void;
-  sendEmail: (data: SendEmailData) => Promise<void>;
+  sendEmail: (data: SendEmailData) => void;
   cancelSend: () => void;
   
   // Mail Actions
@@ -151,7 +150,6 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
       return savedSettings ? JSON.parse(savedSettings) : initialAppSettings;
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{ timerId: number, emailData: SendEmailData } | null>(null);
 
   useEffect(() => { localStorage.setItem('appSettings', JSON.stringify(appSettings)); }, [appSettings]);
@@ -166,7 +164,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
       setUserFolders(savedFolders ? JSON.parse(savedFolders) : initialMockUserFolders);
   }, []);
 
-  const checkUserSession = useCallback(async () => {
+  const checkUserSession = useCallback(() => {
     setIsLoading(true);
     // In a real app, you'd check a session token. Here, we just auto-login the mock user.
     setUser(mockUser);
@@ -175,30 +173,24 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     setTimeout(() => setIsLoading(false), 500); // Simulate loading
   }, [loadInitialData]);
   
-  const login = useCallback(async (email: string, pass: string) => {
+  const login = useCallback((email: string, pass: string) => {
     setIsLoading(true);
-    setLoginError(null);
     // Mock login: succeed with any non-empty credentials
     if (email && pass) {
-        await checkUserSession();
+        checkUserSession();
         addToast(`Welcome, ${mockUser.name}!`);
     } else {
-        setLoginError('Please enter both email and password.');
-        setUser(null);
+        addToast('Please enter both email and password.');
         setIsLoading(false);
     }
   }, [checkUserSession, addToast]);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
     setUser(null);
     setEmails([]);
     setUserFolders([]);
     setCurrentFolder(Folder.INBOX);
     setSelectedConversationId(null);
-    setLoginError(null);
-    // Optionally clear mock data from storage on logout
-    // localStorage.removeItem('emails');
-    // localStorage.removeItem('userFolders');
     addToast('You have been logged out.');
   }, [addToast]);
 
@@ -275,7 +267,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   
   const deselectAllConversations = useCallback(() => setSelectedConversationIds(new Set()), []);
   
-  const moveConversations = useCallback(async (conversationIds: string[], targetFolder: string) => {
+  const moveConversations = useCallback((conversationIds: string[], targetFolder: string) => {
     setEmails(prevEmails => {
         return prevEmails.map(email => 
             conversationIds.includes(email.conversationId)
@@ -290,7 +282,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const actuallySendEmail = useCallback((data: SendEmailData) => {
       if (!user) return;
-      const isScheduled = !!data.scheduleDate;
+      
       const newEmail: Email = {
         id: `email-${Date.now()}`,
         conversationId: `conv-${Date.now()}`,
@@ -305,14 +297,14 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
         timestamp: new Date().toISOString(),
         isRead: true,
         isStarred: false,
-        folder: isScheduled ? Folder.SCHEDULED : Folder.SENT,
+        folder: data.scheduleDate ? Folder.SCHEDULED : Folder.SENT,
         attachments: data.attachments.map(f => ({fileName: f.name, fileSize: f.size})),
-        scheduledSendTime: isScheduled ? data.scheduleDate.toISOString() : undefined,
+        scheduledSendTime: data.scheduleDate ? data.scheduleDate.toISOString() : undefined,
       };
 
       setEmails(prev => [newEmail, ...prev]);
       
-      if (isScheduled) {
+      if (data.scheduleDate) {
           addToast('Message scheduled.');
           setCurrentFolderCallback(Folder.SCHEDULED);
       } else {
@@ -330,7 +322,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [pendingSend, openCompose, addToast]);
 
-  const sendEmail = useCallback(async (data: SendEmailData) => {
+  const sendEmail = useCallback((data: SendEmailData) => {
     closeCompose();
     // If it's a scheduled send, handle it immediately.
     if (data.scheduleDate) {
@@ -361,7 +353,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [closeCompose, actuallySendEmail, appSettings.sendDelay, pendingSend, addToast, cancelSend]);
   
-  const toggleStar = useCallback(async (conversationId: string, isCurrentlyStarred: boolean) => {
+  const toggleStar = useCallback((conversationId: string, isCurrentlyStarred: boolean) => {
     setEmails(prevEmails => 
         prevEmails.map(email => 
             email.conversationId === conversationId ? { ...email, isStarred: !isCurrentlyStarred } : email
@@ -370,7 +362,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     addToast('Star updated.');
   }, [addToast]);
 
-  const deleteConversation = useCallback(async (conversationIds: string[]) => {
+  const deleteConversation = useCallback((conversationIds: string[]) => {
     setEmails(prevEmails => {
         const emailsToTrash = prevEmails.filter(e => conversationIds.includes(e.conversationId) && e.folder !== Folder.TRASH);
         const emailsToDelete = prevEmails.filter(e => conversationIds.includes(e.conversationId) && e.folder === Folder.TRASH);
@@ -429,12 +421,12 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     );
   }, []);
   
-  const bulkAction = useCallback(async (action: 'read' | 'unread' | 'delete') => {
+  const bulkAction = useCallback((action: 'read' | 'unread' | 'delete') => {
     const ids = Array.from(selectedConversationIds);
     if (ids.length === 0) return;
     
     if (action === 'delete') {
-      await deleteConversation(ids);
+      deleteConversation(ids);
     } else {
       markConversationsAsRead(ids, action === 'read');
       addToast(`Marked ${ids.length} conversation(s) as ${action}.`);
@@ -446,11 +438,11 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   const bulkMarkAsRead = useCallback(() => bulkAction('read'), [bulkAction]);
   const bulkMarkAsUnread = useCallback(() => bulkAction('unread'), [bulkAction]);
   
-  const markAsRead = useCallback(async (conversationId: string) => {
+  const markAsRead = useCallback((conversationId: string) => {
     markConversationsAsRead([conversationId], true);
   }, [markConversationsAsRead]);
   
-  const markAsUnread = useCallback(async (conversationId: string) => {
+  const markAsUnread = useCallback((conversationId: string) => {
     markConversationsAsRead([conversationId], false);
   }, [markConversationsAsRead]);
 
@@ -568,7 +560,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   const contextValue: AppContextType = {
-    user, emails, conversations: allConversations, userFolders, currentFolder, selectedConversationId, focusedConversationId, composeState, searchQuery, selectedConversationIds, theme, displayedConversations, isSidebarCollapsed, view, appSettings, contacts, selectedContactId, isLoading, loginError,
+    user, emails, conversations: allConversations, userFolders, currentFolder, selectedConversationId, focusedConversationId, composeState, searchQuery, selectedConversationIds, theme, displayedConversations, isSidebarCollapsed, view, appSettings, contacts, selectedContactId, isLoading,
     login, logout, checkUserSession,
     setCurrentFolder: setCurrentFolderCallback, setSelectedConversationId, setSearchQuery,
     openCompose, closeCompose, sendEmail, cancelSend,
