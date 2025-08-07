@@ -3,38 +3,65 @@ import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from './icons/TrashIcon';
 import { PlusCircleIcon } from './icons/PlusCircleIcon';
-import { Rule } from '../types';
+import { Rule, SystemFolder } from '../types';
 
 type ConditionField = Rule['condition']['field'];
 type ActionType = Rule['action']['type'];
 
 const RulesSettings: React.FC = () => {
-    const { appSettings, userFolders, addRule, deleteRule } = useAppContext();
+    const { appSettings, labels, userFolders, addRule, deleteRule } = useAppContext();
     const [conditionField, setConditionField] = useState<ConditionField>('sender');
     const [conditionValue, setConditionValue] = useState('');
-    const [actionType, setActionType] = useState<ActionType>('move');
-    const [moveToFolder, setMoveToFolder] = useState(userFolders[0]?.name || '');
+    const [actionType, setActionType] = useState<ActionType>('applyLabel');
+    const [actionLabelId, setActionLabelId] = useState(labels[0]?.id || '');
+    const [actionFolderId, setActionFolderId] = useState<string>(SystemFolder.INBOX);
+    
+    const allFolders = [ ...Object.values(SystemFolder), ...userFolders.map(f => f.id)];
 
     const handleAddRule = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!conditionValue || (actionType === 'move' && !moveToFolder)) {
+        if (!conditionValue) {
             alert('Please fill out all fields for the rule.');
             return;
         }
 
-        const newRule: Omit<Rule, 'id'> = {
-            condition: { field: conditionField, operator: 'contains', value: conditionValue },
-            action: { type: actionType, folder: actionType === 'move' ? moveToFolder : undefined },
-        };
+        let action: Rule['action'];
+        switch(actionType) {
+            case 'moveToFolder':
+                action = { type: 'moveToFolder', folderId: actionFolderId };
+                break;
+            case 'applyLabel':
+                if (!actionLabelId) { alert('Please select a label.'); return; }
+                action = { type: 'applyLabel', labelId: actionLabelId };
+                break;
+            case 'star':
+                action = { type: 'star' };
+                break;
+            case 'markAsRead':
+                 action = { type: 'markAsRead' };
+                 break;
+            default:
+                return;
+        }
 
-        addRule(newRule);
+        addRule({
+            condition: { field: conditionField, operator: 'contains', value: conditionValue },
+            action,
+        });
         setConditionValue('');
     };
     
     const renderRuleText = (rule: Rule) => {
         let actionText = '';
         switch(rule.action.type) {
-            case 'move': actionText = `move to "${rule.action.folder}"`; break;
+            case 'applyLabel': 
+                const labelName = labels.find(l => l.id === rule.action.labelId)?.name || 'unknown label';
+                actionText = `apply label "${labelName}"`; 
+                break;
+            case 'moveToFolder':
+                const folderName = userFolders.find(f => f.id === rule.action.folderId)?.name || rule.action.folderId || 'unknown folder';
+                actionText = `move to folder "${folderName}"`;
+                break;
             case 'star': actionText = 'star it'; break;
             case 'markAsRead': actionText = 'mark as read'; break;
         }
@@ -54,7 +81,7 @@ const RulesSettings: React.FC = () => {
                                 <select 
                                     value={conditionField} 
                                     onChange={e => setConditionField(e.target.value as ConditionField)}
-                                    className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                                    className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                                 >
                                     <option value="sender">Sender</option>
                                     <option value="recipient">Recipient</option>
@@ -67,7 +94,7 @@ const RulesSettings: React.FC = () => {
                                     type="text"
                                     value={conditionValue}
                                     onChange={e => setConditionValue(e.target.value)}
-                                    className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                                    className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                                     placeholder="e.g., newsletter@example.com"
                                 />
                            </div>
@@ -77,34 +104,46 @@ const RulesSettings: React.FC = () => {
                             <select
                                 value={actionType}
                                 onChange={e => setActionType(e.target.value as ActionType)}
-                                className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                                className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                             >
-                                <option value="move">Move to...</option>
+                                <option value="moveToFolder">Move to folder...</option>
+                                <option value="applyLabel">Apply label...</option>
                                 <option value="star">Star it</option>
                                 <option value="markAsRead">Mark as read</option>
                             </select>
                         </div>
                     </div>
-                    {actionType === 'move' && (
-                        <div className="flex justify-end">
+                     <div className="flex justify-end">
+                        {actionType === 'applyLabel' && (
+                            <div className="w-full md:w-1/3">
+                                <label htmlFor="apply-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label</label>
+                                <select
+                                    id="apply-label"
+                                    value={actionLabelId}
+                                    onChange={e => setActionLabelId(e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
+                                    disabled={labels.length === 0}
+                                >
+                                    {labels.length === 0 ? <option>Create a label first</option> : labels.map(label => <option key={label.id} value={label.id}>{label.name}</option>)}
+                                </select>
+                            </div>
+                        )}
+                         {actionType === 'moveToFolder' && (
                             <div className="w-full md:w-1/3">
                                 <label htmlFor="move-to-folder" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Folder</label>
                                 <select
                                     id="move-to-folder"
-                                    value={moveToFolder}
-                                    onChange={e => setMoveToFolder(e.target.value)}
-                                    className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
-                                    disabled={userFolders.length === 0}
+                                    value={actionFolderId}
+                                    onChange={e => setActionFolderId(e.target.value)}
+                                    className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                                 >
-                                    {userFolders.length === 0 ? (
-                                        <option>Create a folder first</option>
-                                    ) : (
-                                        userFolders.map(folder => <option key={folder.id} value={folder.name}>{folder.name}</option>)
-                                    )}
+                                    {Object.values(SystemFolder).map(f => <option key={f} value={f}>{f}</option>)}
+                                    <option disabled>-- User Folders --</option>
+                                    {userFolders.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
                                 </select>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                     <div className="flex justify-end">
                         <button type="submit" className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-primary rounded-md hover:bg-primary-hover">
                            <PlusCircleIcon className="w-5 h-5"/> Add Rule

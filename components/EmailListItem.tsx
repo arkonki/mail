@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { Conversation, Folder, ActionType, Email } from '../types';
+import { Conversation, SystemLabel, ActionType, Email, SystemFolder } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { StarIconSolid } from './icons/StarIconSolid';
 import { StarIcon as StarIconOutline } from './icons/StarIcon';
@@ -13,13 +13,14 @@ interface ConversationListItemProps {
 }
 
 const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation }) => {
-  const { setSelectedConversationId, toggleStar, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, focusedConversationId } = useAppContext();
+  const { setSelectedConversationId, toggleLabel, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, focusedConversationId, labels } = useAppContext();
   const isFocused = focusedConversationId === conversation.id;
   const isChecked = selectedConversationIds.has(conversation.id);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
   const latestEmail = conversation.emails[conversation.emails.length - 1];
-  const isDraftOrScheduled = latestEmail.folder === Folder.DRAFTS || latestEmail.folder === Folder.SCHEDULED;
+  const isDraftOrScheduled = conversation.folderId === SystemFolder.DRAFTS || conversation.folderId === SystemFolder.SCHEDULED;
+  const isStarred = conversation.labelIds.includes(SystemLabel.STARRED);
 
   const handleContainerClick = () => {
     if (isDraftOrScheduled) {
@@ -39,7 +40,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    toggleStar(conversation.id, conversation.isStarred);
+    toggleLabel([conversation.id], SystemLabel.STARRED);
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -87,7 +88,10 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
         dragPreviewRef.current = null;
     }
   };
-
+  
+  const userLabels = conversation.labelIds
+    .map(id => labels.find(l => l.id === id))
+    .filter((l): l is NonNullable<typeof l> => l !== undefined);
 
   return (
     <li
@@ -108,26 +112,37 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
         </div>
         <div onClick={handleContainerClick} className="flex items-center w-full cursor-pointer">
             <button onClick={handleStarClick} className="p-2 mr-2 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20 focus:outline-none">
-            {conversation.isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
+            {isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
             </button>
             <div className={`w-32 truncate mr-4 ${!conversation.isRead && !isDraftOrScheduled ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-600 dark:text-gray-400'}`}>
                 {getParticipantsDisplay()}
                 {conversation.emails.length > 1 && <span className="ml-1 text-xs">({conversation.emails.length})</span>}
             </div>
-            <div className="flex-grow truncate">
-              {isDraftOrScheduled && latestEmail.folder === Folder.SCHEDULED && (
-                <span className="inline-flex items-center text-xs font-medium mr-2 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                  <ClockIcon className="w-3 h-3 mr-1" />
-                  Scheduled
-                </span>
-              )}
-               {isDraftOrScheduled && latestEmail.folder === Folder.DRAFTS && (
-                <span className="inline-flex items-center text-xs font-medium mr-2 px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                  Draft
-                </span>
-              )}
-              <span className={` ${!conversation.isRead && !isDraftOrScheduled ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-800 dark:text-gray-300'}`}>{conversation.subject}</span>
-              <span className="ml-2 text-gray-500 dark:text-gray-400 font-normal">- {latestEmail.snippet}</span>
+            <div className="flex-grow truncate flex items-center gap-2">
+              <div className="flex-shrink-0">
+                  {conversation.folderId === SystemFolder.SCHEDULED && (
+                    <span className="inline-flex items-center text-xs font-medium mr-2 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                      <ClockIcon className="w-3 h-3 mr-1" />
+                      Scheduled
+                    </span>
+                  )}
+                   {conversation.folderId === SystemFolder.DRAFTS && (
+                    <span className="inline-flex items-center text-xs font-medium mr-2 px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                      Draft
+                    </span>
+                  )}
+              </div>
+              <div className="truncate">
+                  <span className={` ${!conversation.isRead && !isDraftOrScheduled ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-800 dark:text-gray-300'}`}>{conversation.subject}</span>
+                  <span className="ml-2 text-gray-500 dark:text-gray-400 font-normal">- {latestEmail.snippet}</span>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                    {userLabels.map(label => (
+                        <div key={label.id} className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${label.color}33`, color: label.color }}>
+                            {label.name}
+                        </div>
+                    ))}
+                </div>
             </div>
             <div className="flex items-center">
                 {conversation.hasAttachments && <PaperClipIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />}

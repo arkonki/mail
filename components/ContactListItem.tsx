@@ -10,9 +10,17 @@ interface ContactListItemProps {
 }
 
 const ContactListItem: React.FC<ContactListItemProps> = ({ contact, isSelected, onSelect }) => {
+  
+  const handleDragStart = (e: React.DragEvent<HTMLLIElement>) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/contact-id', contact.id);
+  };
+  
   return (
     <li
       onClick={onSelect}
+      draggable="true"
+      onDragStart={handleDragStart}
       className={`flex items-center gap-4 px-4 py-3 cursor-pointer border-b border-outline dark:border-dark-outline transition-colors duration-150 ${
         isSelected
           ? 'bg-primary/10 dark:bg-primary/20'

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 
@@ -47,7 +48,7 @@ const AutoResponderSettings: React.FC = () => {
                             id="autoresponder-subject"
                             value={subject}
                             onChange={e => setSubject(e.target.value)}
-                            className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                            className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                             placeholder="Out of Office"
                         />
                     </div>
@@ -58,7 +59,7 @@ const AutoResponderSettings: React.FC = () => {
                             value={message}
                             onChange={e => setMessage(e.target.value)}
                             rows={5}
-                            className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                            className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                             placeholder="I am currently out of the office and will reply upon my return."
                         />
                     </div>
@@ -70,7 +71,7 @@ const AutoResponderSettings: React.FC = () => {
                                 id="start-date"
                                 value={startDate}
                                 onChange={e => setStartDate(e.target.value)}
-                                className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                                className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                             />
                         </div>
                         <div>
@@ -80,7 +81,7 @@ const AutoResponderSettings: React.FC = () => {
                                 id="end-date"
                                 value={endDate}
                                 onChange={e => setEndDate(e.target.value)}
-                                className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                                className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                             />
                         </div>
                     </div>

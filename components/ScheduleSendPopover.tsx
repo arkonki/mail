@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { ClockIcon } from './icons/ClockIcon';
 
@@ -75,7 +76,7 @@ const ScheduleSendPopover: React.FC<ScheduleSendPopoverProps> = ({ onSchedule, o
                         type="datetime-local"
                         value={customDate}
                         onChange={handleCustomDateChange}
-                        className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                         min={new Date(new Date().getTime() + 5 * 60000).toISOString().slice(0, 16)} // 5 mins from now
                     />
                 </div>

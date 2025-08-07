@@ -41,7 +41,7 @@ const GeneralSettings: React.FC = () => {
                     <select
                         value={duration}
                         onChange={(e) => setDuration(Number(e.target.value) as SendDelayDuration)}
-                        className="w-full md:w-1/2 p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline"
+                        className="w-full md:w-1/2 p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline"
                         disabled={!isEnabled}
                     >
                         <option value={5}>5 seconds</option>

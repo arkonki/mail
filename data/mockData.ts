@@ -1,14 +1,21 @@
 
-import { Contact, Email, User, UserFolder, Folder } from '../types';
+import { Contact, Email, User, Label, SystemLabel, ContactGroup, SystemFolder, UserFolder } from '../types';
 
 export const mockUser: User = {
     email: 'test.user@example.com',
     name: 'Test User',
 };
 
+export const mockLabels: Label[] = [
+    { id: 'label-1', name: 'Travel', color: '#3498db' }, // Blue
+    { id: 'label-2', name: 'Receipts', color: '#2ecc71' }, // Green
+    { id: 'label-3', name: 'Work', color: '#e74c3c' }, // Red
+    { id: 'label-4', name: 'Personal', color: '#f1c40f' }, // Yellow
+];
+
 export const mockUserFolders: UserFolder[] = [
-    { id: 'folder-1', name: 'Travel' },
-    { id: 'folder-2', name: 'Receipts' },
+    { id: 'folder-1', name: 'Project Alpha' },
+    { id: 'folder-2', name: 'Conference 2024' },
 ];
 
 export const mockContacts: Contact[] = [
@@ -20,6 +27,11 @@ export const mockContacts: Contact[] = [
   { id: 'contact-6', name: 'Figma', email: 'team@figma.com', company: 'Figma' },
   { id: 'contact-7', name: 'Mom', email: 'mom@example.com', phone: '555-123-4567', notes: 'Call on weekends!' },
   { id: 'user', name: mockUser.name, email: mockUser.email},
+];
+
+export const mockContactGroups: ContactGroup[] = [
+    { id: 'group-1', name: 'Work Team', contactIds: ['contact-1', 'contact-3'] },
+    { id: 'group-2', name: 'Family', contactIds: ['contact-7'] },
 ];
 
 
@@ -42,8 +54,8 @@ export const mockEmails: Email[] = [
         snippet: "Thanks, Test! I've attached the updated mockups...",
         timestamp: now.toISOString(),
         isRead: false,
-        isStarred: true,
-        folder: Folder.INBOX,
+        folderId: SystemFolder.INBOX,
+        labelIds: [SystemLabel.STARRED, 'label-3'],
         attachments: [{ fileName: 'Updated-Mockups.fig', fileSize: 4500000 }],
     },
     {
@@ -57,8 +69,8 @@ export const mockEmails: Email[] = [
         snippet: 'Looks great! Just one minor suggestion...',
         timestamp: new Date(now.getTime() - 10 * 60000).toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.SENT,
+        folderId: SystemFolder.SENT,
+        labelIds: ['label-3'],
     },
      {
         id: 'email-3',
@@ -71,8 +83,8 @@ export const mockEmails: Email[] = [
         snippet: 'Here are the initial designs for the new dashboard...',
         timestamp: new Date(now.getTime() - 20 * 60000).toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.INBOX,
+        folderId: SystemFolder.INBOX,
+        labelIds: ['label-3'],
     },
 
     // --- Conversation 2: GitHub Notification ---
@@ -87,11 +99,11 @@ export const mockEmails: Email[] = [
         snippet: 'The build for your repository has failed...',
         timestamp: yesterday.toISOString(),
         isRead: false,
-        isStarred: false,
-        folder: Folder.INBOX,
+        folderId: SystemFolder.INBOX,
+        labelIds: [],
     },
     
-    // --- Conversation 3: Travel Plans ---
+    // --- Conversation 3: Travel Plans (in a user folder) ---
     {
         id: 'email-5',
         conversationId: 'conv-3',
@@ -103,8 +115,8 @@ export const mockEmails: Email[] = [
         snippet: 'Just confirming my flight details for the conference...',
         timestamp: twoDaysAgo.toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.INBOX,
+        folderId: 'folder-2', // In "Conference 2024" folder
+        labelIds: ['label-1'],
     },
 
     // --- Sent Email (No Reply Yet) ---
@@ -119,8 +131,8 @@ export const mockEmails: Email[] = [
         snippet: "Just wanted to give you a quick update on Project Alpha...",
         timestamp: new Date(now.getTime() - 2 * 24 * 60 * 60000).toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.SENT,
+        folderId: SystemFolder.SENT,
+        labelIds: [],
     },
 
     // --- Spam Email ---
@@ -135,8 +147,8 @@ export const mockEmails: Email[] = [
         snippet: 'Click here to claim your exclusive prize!',
         timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60000).toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.SPAM,
+        folderId: SystemFolder.SPAM,
+        labelIds: [],
     },
 
      // --- Draft Email ---
@@ -151,7 +163,22 @@ export const mockEmails: Email[] = [
         snippet: 'Are we still on for dinner this Saturday?',
         timestamp: new Date().toISOString(),
         isRead: true,
-        isStarred: false,
-        folder: Folder.DRAFTS,
+        folderId: SystemFolder.DRAFTS,
+        labelIds: [],
+    },
+     // --- Archived Email ---
+    {
+        id: 'email-9',
+        conversationId: 'conv-7',
+        senderName: 'Vercel',
+        senderEmail: 'notifications@vercel.com',
+        recipientEmail: mockUser.email,
+        subject: 'Deployment Successful: webmail-client',
+        body: `<p>Your deployment is ready!</p>`,
+        snippet: 'Your deployment is ready!',
+        timestamp: new Date(now.getTime() - 4 * 24 * 60 * 60000).toISOString(),
+        isRead: true,
+        folderId: SystemFolder.ARCHIVE,
+        labelIds: [],
     },
 ];

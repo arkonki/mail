@@ -1,30 +1,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MenuIcon } from './icons/MenuIcon';
-import { SearchIcon } from './icons/SearchIcon';
 import { UserCircleIcon } from './icons/UserCircleIcon';
 import { MailIcon } from './icons/MailIcon';
 import { useAppContext } from '../context/AppContext';
-import { XMarkIcon } from './icons/XMarkIcon';
 import { SunIcon } from './icons/SunIcon';
 import { MoonIcon } from './icons/MoonIcon';
 import { CogIcon } from './icons/CogIcon';
 
 const Header: React.FC = () => {
-  const { user, setSearchQuery, theme, toggleTheme, toggleSidebar, view, setView, logout } = useAppContext();
-  const [localQuery, setLocalQuery] = useState('');
+  const { user, theme, toggleTheme, toggleSidebar, view, setView, logout } = useAppContext();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearchQuery(localQuery);
-  };
-
-  const clearSearch = () => {
-    setLocalQuery('');
-    setSearchQuery('');
-  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -68,30 +55,6 @@ const Header: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex-grow max-w-2xl mx-4">
-        <form onSubmit={handleSearchSubmit} className="relative">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <SearchIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </div>
-          <input 
-            type="search"
-            placeholder={`Search ${view}`}
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            className="block w-full p-2 pl-10 text-sm text-gray-900 bg-gray-100 border border-transparent rounded-full dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400 focus:ring-primary focus:border-primary focus:bg-white dark:focus:bg-gray-800"
-          />
-          {localQuery && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="absolute inset-y-0 right-0 flex items-center pr-3"
-            >
-              <XMarkIcon className="w-5 h-5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" />
-            </button>
-          )}
-        </form>
-      </div>
-
       <div className="flex items-center space-x-2">
          <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             {theme === 'light' ? <MoonIcon className="w-6 h-6 text-gray-600"/> : <SunIcon className="w-6 h-6 text-yellow-400"/>}

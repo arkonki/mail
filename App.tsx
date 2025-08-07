@@ -20,6 +20,7 @@ const AppContent: React.FC = () => {
         } else {
             root.classList.remove('dark');
         }
+        root.style.colorScheme = theme;
     }, [theme]);
 
     if (isLoading) {

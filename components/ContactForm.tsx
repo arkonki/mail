@@ -29,25 +29,25 @@ const ContactForm: React.FC<ContactFormProps> = ({ initialData, onSave, onCancel
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label htmlFor="contact-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                    <input id="contact-name" type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
+                    <input id="contact-name" type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
                 </div>
                 <div>
                     <label htmlFor="contact-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                    <input id="contact-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
+                    <input id="contact-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
                 </div>
                 <div>
                     <label htmlFor="contact-phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                    <input id="contact-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
+                    <input id="contact-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
                 </div>
                  <div>
                     <label htmlFor="contact-company" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company</label>
-                    <input id="contact-company" type="text" value={company} onChange={e => setCompany(e.target.value)} className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
+                    <input id="contact-company" type="text" value={company} onChange={e => setCompany(e.target.value)} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
                 </div>
             </div>
             
             <div>
                 <label htmlFor="contact-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                <textarea id="contact-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={4} className="w-full p-2 border rounded-md dark:bg-dark-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
+                <textarea id="contact-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={4} className="w-full p-2 border rounded-md bg-gray-50 dark:bg-dark-surface text-on-surface dark:text-dark-on-surface dark:border-dark-outline focus:ring-primary focus:border-primary" />
             </div>
 
             <div className="flex justify-end gap-3 pt-4">

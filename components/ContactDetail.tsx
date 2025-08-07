@@ -10,6 +10,8 @@ import { PencilSquareIcon } from './icons/PencilSquareIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PencilIcon } from './icons/PencilIcon';
 import ContactForm from './ContactForm';
+import AddToGroupPopover from './AddToGroupPopover';
+import { UsersIcon } from './icons/UsersIcon';
 
 interface ContactDetailProps {
   contact: Contact;
@@ -30,8 +32,9 @@ const DetailRow: React.FC<{ icon: React.ReactNode; label: string; value: React.R
 }
 
 const ContactDetail: React.FC<ContactDetailProps> = ({ contact }) => {
-  const { deleteContact, openCompose, updateContact } = useAppContext();
+  const { deleteContact, openCompose, updateContact, contactGroups } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
+  const [isGroupPopoverOpen, setIsGroupPopoverOpen] = useState(false);
 
   const handleDelete = () => {
     if (window.confirm(`Are you sure you want to delete ${contact.name}?`)) {
@@ -51,6 +54,8 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contact }) => {
   if (isEditing) {
       return <ContactForm initialData={contact} onSave={(data) => handleSaveEdit(data)} onCancel={() => setIsEditing(false)} />;
   }
+  
+  const contactMemberOfGroups = contactGroups.filter(g => g.contactIds.includes(contact.id));
 
   return (
     <div className="animate-fade-in">
@@ -79,6 +84,28 @@ const ContactDetail: React.FC<ContactDetailProps> = ({ contact }) => {
                     <DetailRow icon={<MailIcon/>} label="Email" value={contact.email} isLink href={`mailto:${contact.email}`} />
                     <DetailRow icon={<PhoneIcon/>} label="Phone" value={contact.phone} isLink href={`tel:${contact.phone}`} />
                     <DetailRow icon={<BuildingOfficeIcon/>} label="Company" value={contact.company} />
+                </div>
+            </div>
+            
+            <div className="p-4 bg-white dark:bg-dark-surface-container rounded-lg border border-outline dark:border-dark-outline">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Groups</h3>
+                    <div className="relative">
+                        <button onClick={() => setIsGroupPopoverOpen(true)} className="px-3 py-1 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 border-outline dark:border-dark-outline">Manage</button>
+                        {isGroupPopoverOpen && <AddToGroupPopover contactId={contact.id} onClose={() => setIsGroupPopoverOpen(false)} />}
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                     {contactMemberOfGroups.length > 0 ? (
+                        contactMemberOfGroups.map(group => (
+                            <div key={group.id} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 text-sm rounded-full px-3 py-1">
+                                <UsersIcon className="w-4 h-4"/>
+                                <span>{group.name}</span>
+                            </div>
+                        ))
+                     ) : (
+                         <p className="text-sm text-gray-400 italic">Not a member of any groups.</p>
+                     )}
                 </div>
             </div>
 

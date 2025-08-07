@@ -1,16 +1,23 @@
 
-
-
-export enum Folder {
+export enum SystemFolder {
   INBOX = 'Inbox',
+  SENT = 'Sent',
+  DRAFTS = 'Drafts',
+  SPAM = 'Spam',
+  TRASH = 'Trash',
+  SCHEDULED = 'Scheduled',
+  ARCHIVE = 'Archive',
+}
+export const SYSTEM_FOLDERS = Object.values(SystemFolder);
+
+
+// Labels are for tagging, Starred is a special tag
+export enum SystemLabel {
   STARRED = 'Starred',
   SNOOZED = 'Snoozed',
-  SENT = 'Sent',
-  SCHEDULED = 'Scheduled',
-  SPAM = 'Spam',
-  DRAFTS = 'Drafts',
-  TRASH = 'Trash',
 }
+export const SYSTEM_LABELS = Object.values(SystemLabel);
+
 
 export enum ActionType {
   REPLY = 'reply',
@@ -23,10 +30,17 @@ export interface Attachment {
   fileSize: number; // in bytes
 }
 
-export interface UserFolder {
+export interface Label {
   id: string;
   name:string;
+  color: string;
 }
+
+export interface UserFolder {
+  id: string;
+  name: string;
+}
+
 
 export interface Email {
   id: string;
@@ -41,8 +55,8 @@ export interface Email {
   snippet: string;
   timestamp: string;
   isRead: boolean;
-  isStarred: boolean;
-  folder: string; // Can be a value from Folder enum or a UserFolder name
+  folderId: string;
+  labelIds: string[];
   attachments?: Attachment[];
   scheduledSendTime?: string;
   snoozedUntil?: string;
@@ -55,9 +69,9 @@ export interface Conversation {
     participants: { name: string, email: string }[];
     lastTimestamp: string;
     isRead: boolean;
-    isStarred: boolean;
+    folderId: string;
+    labelIds: string[];
     isSnoozed: boolean;
-    folder: string;
     hasAttachments: boolean;
 }
 
@@ -74,6 +88,13 @@ export interface Contact {
     company?: string;
     notes?: string;
 }
+
+export interface ContactGroup {
+  id: string;
+  name: string;
+  contactIds: string[];
+}
+
 
 // Settings Types
 export interface Signature {
@@ -97,8 +118,9 @@ export interface Rule {
     value: string;
   };
   action: {
-    type: 'move' | 'star' | 'markAsRead';
-    folder?: string; // only for 'move'
+    type: 'applyLabel' | 'star' | 'markAsRead' | 'moveToFolder';
+    labelId?: string;
+    folderId?: string;
   };
 }
 
