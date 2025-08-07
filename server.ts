@@ -1,5 +1,5 @@
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
@@ -17,20 +17,24 @@ interface Address {
 
 const app = express();
 app.use(cors({
-    origin: 'http://localhost:8080', // Adjust if your frontend runs on a different port
+    origin: process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:8080',
     credentials: true,
 }));
 app.use(express.json());
 app.use(session({
     secret: process.env.SESSION_SECRET || 'a-very-secret-secret',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } // Set to true if using HTTPS
+    saveUninitialized: false, // Set to false to prevent empty sessions
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
 }));
 
 declare module 'express-session' {
   interface SessionData {
-    user: { email: string; pass: string };
+    user: { email: string; pass: string; name: string; };
   }
 }
 
@@ -45,7 +49,7 @@ const getImapConfig = (user: {email: string, pass: string}) => ({
         host: 'mail.veebimajutus.ee',
         port: 993,
         tls: true,
-        authTimeout: 5000,
+        authTimeout: 10000,
          tlsOptions: {
             rejectUnauthorized: false
         }
@@ -64,34 +68,33 @@ const getSmtpTransport = (user: {email: string, pass: string}) => {
     });
 };
 
-// HELPER: Find the name of the trash folder
-const findTrashFolder = (boxes: { [name: string]: any }): string | null => {
-    const trashNames = ['Trash', 'Bin', 'Deleted Items', '[Gmail]/Trash'];
+// HELPER: Find the name of a special folder
+const findSpecialFolder = (boxes: { [name: string]: any }, folderKeywords: string[]): string | null => {
     const boxNames = Object.keys(boxes);
-    for (const name of trashNames) {
+    for (const name of folderKeywords) {
         const found = boxNames.find(boxName => boxName.toLowerCase() === name.toLowerCase());
         if (found) return found;
     }
-    // Fallback for nested trash folders
-    for (const name of trashNames) {
-        const found = boxNames.find(boxName => boxName.toLowerCase().endsWith(`.${name.toLowerCase()}`));
+    // Fallback for nested folders (e.g., [Gmail]/Trash)
+    for (const name of folderKeywords) {
+        const found = boxNames.find(boxName => boxName.toLowerCase().includes(name.toLowerCase()));
         if (found) return found;
     }
     return null;
 }
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', async (req: Request, res: Response) => {
     const { email, password } = req.body;
     if (!email || !password) {
-        return res.status(400).send('Email and password are required');
+        return res.status(400).json({ message: 'Email and password are required' });
     }
     
     try {
         const config = getImapConfig({ email, pass: password });
         const connection = await Imap.connect(config);
         await connection.end();
-        req.session.user = { email, pass: password };
-        res.status(200).json({ message: 'Login successful' });
+        req.session.user = { email, pass: password, name: email.split('@')[0] };
+        res.status(200).json({ email: req.session.user.email, name: req.session.user.name });
     } catch (error: any) {
         console.error('Login failed:', error.message);
         if (error.message && error.message.includes('AUTHENTICATIONFAILED')) {
@@ -104,29 +107,37 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-app.post('/api/logout', (req, res) => {
+app.get('/api/me', (req: Request, res: Response) => {
+    if (req.session.user) {
+        res.status(200).json({ email: req.session.user.email, name: req.session.user.name });
+    } else {
+        res.status(401).json({ message: 'Not authenticated' });
+    }
+});
+
+app.post('/api/logout', (req: Request, res: Response) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).send('Could not log out.');
         }
-        res.clearCookie('connect.sid');
+        res.clearCookie('connect.sid'); // The default session cookie name
         res.status(200).send('Logged out successfully');
     });
 });
 
 // Middleware to check for authentication
-const checkAuth = (req, res, next) => {
+const checkAuth = (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.user) {
         return res.status(401).send('Not authenticated');
     }
     next();
 };
 
-app.get('/api/settings', checkAuth, (req, res) => {
+app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
     const email = req.session.user!.email;
     if (!userSettings[email]) {
         userSettings[email] = {
-            signature: { isEnabled: true, body: `Cheers,<br>${email.split('@')[0]}` },
+            signature: { isEnabled: true, body: `Cheers,<br>${req.session.user!.name}` },
             autoResponder: { isEnabled: false, subject: 'Out of Office', message: 'I am currently unavailable.'},
             rules: [],
         };
@@ -134,14 +145,14 @@ app.get('/api/settings', checkAuth, (req, res) => {
     res.json(userSettings[email]);
 });
 
-app.post('/api/settings', checkAuth, (req, res) => {
+app.post('/api/settings', checkAuth, (req: Request, res: Response) => {
     const email = req.session.user!.email;
     userSettings[email] = { ...userSettings[email], ...req.body.settings };
     res.status(200).json(userSettings[email]);
 });
 
 
-app.get('/api/mailboxes', checkAuth, async (req, res) => {
+app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
         const boxes = await connection.getBoxes();
@@ -157,51 +168,42 @@ app.get('/api/mailboxes', checkAuth, async (req, res) => {
     }
 });
 
-app.get('/api/emails/:mailbox', checkAuth, async (req, res) => {
+app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) => {
     const mailbox = req.params.mailbox;
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
-        await connection.openBox(mailbox); // true for read-write
+        await connection.openBox(mailbox); // read-write by default
         
         const searchCriteria = ['ALL'];
-        const fetchOptions: any = {
-            bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE IN-REPLY-TO MESSAGE-ID)', 'TEXT'],
+        const fetchOptions = {
+            bodies: [''],
             struct: true,
             markSeen: false,
+            flags: true,
         };
         
         const messages = await connection.search(searchCriteria, fetchOptions);
         const emails: any[] = [];
 
         for (const item of messages) {
-            const all = item.parts.find(part => part.which === 'TEXT');
-            const header = item.parts.find(part => part.which.startsWith('HEADER.FIELDS'));
-
-            if (!header || !all) continue;
+            const rawMail = item.parts.find(part => part.which === '')?.body;
+            if (!rawMail) continue;
             
-            const rawMail = header.body + all.body;
             const mail: ParsedMail = await simpleParser(rawMail);
             
             const fromAddress = mail.from?.value?.[0];
-            const fromName = mail.from?.text || fromAddress?.name || '';
+            const toAddresses = Array.isArray(mail.to) ? mail.to.flatMap(t => t.value) : mail.to?.value || [];
 
-            let toAddresses: Address[] = [];
-            if (mail.to) {
-                const toHeader = Array.isArray(mail.to) ? mail.to : [mail.to];
-                toAddresses = toHeader.flatMap(addrObj => addrObj.value);
-            }
-            const recipientText = toAddresses.map(t => t.name || t.address).join(', ');
-            
             emails.push({
-                id: item.attributes.uid,
+                id: item.attributes.uid.toString(),
                 conversationId: mail.inReplyTo || mail.messageId || `conv-${item.attributes.uid}`,
-                senderName: fromName,
+                senderName: fromAddress?.name || fromAddress?.address || 'Unknown Sender',
                 senderEmail: fromAddress?.address || '',
-                recipientEmail: recipientText,
+                recipientEmail: toAddresses.map(t => t.address).join(', '),
                 subject: mail.subject || '(no subject)',
                 body: mail.html || mail.textAsHtml || '',
                 snippet: (mail.text || '').substring(0, 100),
-                timestamp: mail.date?.toISOString() || new Date().toISOString(),
+                timestamp: mail.date?.toISOString() || new Date(item.attributes.date).toISOString(),
                 isRead: item.attributes.flags.includes('\\Seen'),
                 isStarred: item.attributes.flags.includes('\\Flagged'),
                 folder: mailbox,
@@ -218,19 +220,38 @@ app.get('/api/emails/:mailbox', checkAuth, async (req, res) => {
     }
 });
 
-app.post('/api/send', checkAuth, async (req, res) => {
-    const { to, subject, body, attachments } = req.body;
+app.post('/api/send', checkAuth, async (req: Request, res: Response) => {
+    const { to, subject, body } = req.body;
     const transport = getSmtpTransport(req.session.user!);
 
     try {
-        await transport.sendMail({
-            from: req.session.user!.email,
+        const info = await transport.sendMail({
+            from: `"${req.session.user!.name}" <${req.session.user!.email}>`,
             to: to,
             subject: subject,
             html: body,
             // attachments: attachments // Requires backend file handling
         });
-        res.status(200).send('Email sent successfully');
+        
+        // Append to sent folder
+        const connection = await Imap.connect(getImapConfig(req.session.user!));
+        try {
+            const boxes = await connection.getBoxes();
+            const sentFolder = findSpecialFolder(boxes, ['Sent', 'Sent Items']);
+            if (sentFolder) {
+                // We need the full raw message to append it
+                // This is a simplified version; a full implementation would reconstruct the raw message.
+                const rawMessage = `From: "${req.session.user!.name}" <${req.session.user!.email}>\r\nTo: ${to}\r\nSubject: ${subject}\r\n\r\n${body.replace(/<[^>]*>?/gm, '')}`;
+                await connection.append(rawMessage, { mailbox: sentFolder, flags: ['\\Seen'] });
+            }
+        } catch (imapError) {
+            console.error("Failed to append to sent folder:", imapError);
+            // Don't fail the whole request if this part fails
+        } finally {
+            await connection.end();
+        }
+
+        res.status(200).json({ message: 'Email sent successfully', messageId: info.messageId });
     } catch(error) {
         console.error('Failed to send email:', error);
         res.status(500).send('Failed to send email');
@@ -247,10 +268,11 @@ interface ActionRequest {
     actions: Action[];
 }
 
-const performAction = async (user: { email: string; pass: string }, actions: Action[], actionFn: (connection: Imap.ImapSimple, uids: number[]) => Promise<any>) => {
+const performAction = async (user: { email: string; pass: string; name: string }, actions: Action[], actionFn: (connection: Imap.ImapSimple, uids: number[]) => Promise<any>) => {
     const connection = await Imap.connect(getImapConfig(user));
     try {
         for (const action of actions) {
+            if (action.uids.length === 0) continue;
             await connection.openBox(action.mailbox);
             await actionFn(connection, action.uids);
         }
@@ -259,7 +281,7 @@ const performAction = async (user: { email: string; pass: string }, actions: Act
     }
 };
 
-app.post('/api/actions/star', checkAuth, async (req, res) => {
+app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     const { isStarred } = req.body;
     try {
@@ -273,7 +295,7 @@ app.post('/api/actions/star', checkAuth, async (req, res) => {
     }
 });
 
-app.post('/api/actions/mark-as-read', checkAuth, async (req, res) => {
+app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.addFlags(uids, '\\Seen'));
@@ -284,7 +306,7 @@ app.post('/api/actions/mark-as-read', checkAuth, async (req, res) => {
     }
 });
 
-app.post('/api/actions/mark-as-unread', checkAuth, async (req, res) => {
+app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.delFlags(uids, '\\Seen'));
@@ -295,12 +317,10 @@ app.post('/api/actions/mark-as-unread', checkAuth, async (req, res) => {
     }
 });
 
-app.post('/api/actions/move', checkAuth, async (req, res) => {
+app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => {
   const { actions, targetFolder }: { actions: Action[], targetFolder: string } = req.body;
   try {
-    await performAction(req.session.user!, actions, async (conn, uids) => {
-        await conn.moveMessage(uids.join(','), targetFolder);
-    });
+    await performAction(req.session.user!, actions, (conn, uids) => conn.moveMessage(uids.map(String), targetFolder));
     res.status(200).send('Moved successfully.');
   } catch(e) {
       console.error("Move failed:", e);
@@ -308,44 +328,47 @@ app.post('/api/actions/move', checkAuth, async (req, res) => {
   }
 });
 
-app.post('/api/actions/delete', checkAuth, async (req, res) => {
+app.post('/api/actions/delete', checkAuth, async (req: Request, res: Response) => {
     const { actions }: ActionRequest = req.body;
     const connection = await Imap.connect(getImapConfig(req.session.user!));
     try {
         const boxes = await connection.getBoxes();
-        const trashFolder = findTrashFolder(boxes);
+        const trashFolder = findSpecialFolder(boxes, ['Trash', 'Bin', 'Deleted Items']);
         
         if (!trashFolder) {
             throw new Error("Could not find a trash folder.");
         }
 
         for (const action of actions) {
+            if (action.uids.length === 0) continue;
             await connection.openBox(action.mailbox);
             if (action.mailbox.toLowerCase() === trashFolder.toLowerCase()) {
                 // Permanently delete
-                await connection.addFlags(action.uids, '\\Deleted');
+                await connection.deleteMessage(action.uids);
             } else {
                 // Move to trash
-                await connection.moveMessage(action.uids.join(','), trashFolder);
+                await connection.moveMessage(action.uids.map(String), trashFolder);
             }
         }
         res.status(200).send('Deleted successfully.');
-    } catch (e) {
+    } catch (e: any) {
         console.error("Delete failed:", e);
-        res.status(500).send("Failed to delete emails.");
+        res.status(500).send(e.message || "Failed to delete emails.");
     } finally {
         await connection.end();
     }
 });
 
-// The following block is commented out for Netlify deployment.
-// Netlify Functions do not use app.listen(). The server is managed by Netlify.
-/*
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
-});
-*/
+
+// The following block can be used for local development.
+// For serverless deployment (e.g., Netlify), this block should be commented out or removed.
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+        console.log(`Backend server running for local development on http://localhost:${PORT}`);
+    });
+}
+
 
 // NOTE FOR NETLIFY DEPLOYMENT:
 // The express app is exported for use in a serverless function environment.

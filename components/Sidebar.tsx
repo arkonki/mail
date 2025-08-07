@@ -128,7 +128,7 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
 
 
 const Sidebar: React.FC = () => {
-  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarCollapsed, moveConversations, simulateNewEmail, createUserFolder, renameUserFolder, deleteUserFolder, view } = useAppContext();
+  const { currentFolder, setCurrentFolder, openCompose, userFolders, isSidebarCollapsed, moveConversations, createUserFolder, renameUserFolder, deleteUserFolder, view } = useAppContext();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
 
@@ -161,7 +161,7 @@ const Sidebar: React.FC = () => {
     }
   }
 
-  const systemFolders = Object.values(Folder).filter(f => f !== Folder.DRAFTS && f !== Folder.SCHEDULED);
+  const systemFolders = Object.values(Folder).filter(f => ![Folder.DRAFTS, Folder.SCHEDULED, Folder.SNOOZED].includes(f));
 
   return (
     <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
@@ -232,13 +232,6 @@ const Sidebar: React.FC = () => {
           </div>
         </nav>
       </div>
-       <div className="p-2">
-            <button 
-                onClick={simulateNewEmail}
-                className="w-full px-4 py-2 text-xs text-center text-gray-500 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                {isSidebarCollapsed ? 'New' : 'Simulate New Email'}
-            </button>
-       </div>
     </aside>
   );
 };

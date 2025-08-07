@@ -1,15 +1,18 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import Login from './components/Login';
 import MainLayout from './components/MainLayout';
 import { AppContextProvider, useAppContext } from './context/AppContext';
 import { ToastProvider } from './context/ToastContext';
+import { SpinnerIcon } from './components/icons/SpinnerIcon';
 
-// This component is always rendered INSIDE the AppContextProvider,
-// so it can safely use the context for theming.
-const ThemedMailClient: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-    const { theme } = useAppContext();
+const AppContent: React.FC = () => {
+    const { user, isLoading, checkUserSession, theme } = useAppContext();
 
+    useEffect(() => {
+        checkUserSession();
+    }, [checkUserSession]);
+    
     useEffect(() => {
         const root = window.document.documentElement;
         if (theme === 'dark') {
@@ -18,50 +21,27 @@ const ThemedMailClient: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
             root.classList.remove('dark');
         }
     }, [theme]);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-surface dark:bg-dark-surface">
+                <SpinnerIcon className="w-12 h-12 text-primary animate-spin" />
+            </div>
+        );
+    }
     
-    return <MainLayout onLogout={onLogout} />;
+    return user ? <MainLayout /> : <Login />;
 };
 
-// This component is rendered OUTSIDE the context provider.
-// It gets theme info from localStorage to prevent a flash of incorrect theme.
-const ThemedLogin: React.FC<{ onLoginSuccess: () => void }> = ({ onLoginSuccess }) => {
-    useEffect(() => {
-        const storedTheme = localStorage.getItem('theme');
-        const root = window.document.documentElement;
-        if (storedTheme === 'dark') {
-            root.classList.add('dark');
-        } else {
-            root.classList.remove('dark');
-        }
-    }, []);
-
-    return <Login onLoginSuccess={onLoginSuccess} />;
-}
 
 const App: React.FC = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-    const handleLoginSuccess = useCallback(() => {
-        setIsLoggedIn(true);
-    }, []);
-
-    const handleLogout = useCallback(() => {
-        setIsLoggedIn(false);
-        // On logout, we can reset the theme to default light or just remove the class
-        window.document.documentElement.classList.remove('dark');
-    }, []);
-
     return (
         <ToastProvider>
-             <div className="h-screen w-screen font-sans overflow-x-hidden">
-                {isLoggedIn ? (
-                    <AppContextProvider>
-                        <ThemedMailClient onLogout={handleLogout} />
-                    </AppContextProvider>
-                ) : (
-                    <ThemedLogin onLoginSuccess={handleLoginSuccess} />
-                )}
-            </div>
+            <AppContextProvider>
+                <div className="h-screen w-screen font-sans overflow-x-hidden">
+                    <AppContent />
+                </div>
+            </AppContextProvider>
         </ToastProvider>
     );
 };

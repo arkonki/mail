@@ -39,7 +39,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    toggleStar(conversation.id);
+    toggleStar(conversation.id, conversation.isStarred);
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {

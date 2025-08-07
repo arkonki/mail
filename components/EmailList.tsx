@@ -1,31 +1,22 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import ConversationListItem from './EmailListItem';
 import { TrashIcon } from './icons/TrashIcon';
 import { MailIcon } from './icons/MailIcon';
 import { InboxIcon } from './icons/InboxIcon';
 import { FolderArrowDownIcon } from './icons/FolderArrowDownIcon';
 import MoveToPopover from './MoveToPopover';
 import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
-import { ClockIcon } from './icons/ClockIcon';
-import SnoozePopover from './SnoozePopover';
+import ConversationListItem from './ConversationListItem';
 
 const BulkActionBar = () => {
-    const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations, markAsSpam, snoozeConversation } = useAppContext();
+    const { selectedConversationIds, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread, deselectAllConversations, moveConversations, markAsSpam } = useAppContext();
     const [isMovePopoverOpen, setIsMovePopoverOpen] = useState(false);
-    const [isSnoozePopoverOpen, setIsSnoozePopoverOpen] = useState(false);
     const count = selectedConversationIds.size;
 
     const handleMove = (folder: string) => {
         moveConversations(Array.from(selectedConversationIds), folder);
         setIsMovePopoverOpen(false);
     };
-
-    const handleSnooze = (date: Date) => {
-        snoozeConversation(Array.from(selectedConversationIds), date);
-        setIsSnoozePopoverOpen(false);
-    }
     
     const handleMarkAsSpam = () => {
         markAsSpam(Array.from(selectedConversationIds));
@@ -46,12 +37,6 @@ const BulkActionBar = () => {
                 <button onClick={bulkMarkAsUnread} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mark as unread">
                     <InboxIcon className="w-5 h-5" />
                 </button>
-                <div className="relative">
-                    <button onClick={() => setIsSnoozePopoverOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Snooze">
-                        <ClockIcon className="w-5 h-5" />
-                    </button>
-                    {isSnoozePopoverOpen && <SnoozePopover onSnooze={handleSnooze} onClose={() => setIsSnoozePopoverOpen(false)} />}
-                </div>
                 <button onClick={handleMarkAsSpam} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Mark as spam">
                     <ExclamationCircleIcon className="w-5 h-5" />
                 </button>
@@ -103,28 +88,3 @@ const EmailList: React.FC = () => {
           {displayedConversations.map((conv) => (
             <ConversationListItem key={conv.id} conversation={conv} />
           ))}
-        </ul>
-    );
-  };
-
-  return (
-    <div className="flex-grow flex flex-col bg-white dark:bg-dark-surface overflow-y-auto">
-        { showBulkActions ? <BulkActionBar /> : (
-            <div className="p-4 border-b border-outline dark:border-dark-outline flex items-center space-x-4">
-                <input
-                    type="checkbox"
-                    className="form-checkbox h-5 w-5 text-primary rounded border-gray-300 dark:border-gray-600 bg-transparent dark:bg-gray-800 focus:ring-primary"
-                    checked={areAllSelected}
-                    onChange={handleSelectAll}
-                    disabled={displayedConversations.length === 0}
-                    title="Select all"
-                />
-                <h2 className="text-lg font-medium text-on-surface dark:text-dark-on-surface">{listTitle}</h2>
-            </div>
-        )}
-      {renderContent()}
-    </div>
-  );
-};
-
-export default EmailList;

@@ -1,23 +1,12 @@
 
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { ActionType, Folder, Contact } from '../types';
 import { PaperClipIcon } from './icons/PaperClipIcon';
-import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import ScheduleSendPopover from './ScheduleSendPopover';
 import RichTextToolbar from './RichTextToolbar';
-
-
-const useDebounce = (callback: (...args: any[]) => void, delay: number) => {
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    return (...args: any[]) => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => callback(...args), delay);
-    };
-};
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -28,58 +17,31 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const ComposeModal: React.FC = () => {
-  const { composeState, closeCompose, sendEmail, saveDraft, deleteConversation, scheduleEmail, appSettings, contacts } = useAppContext();
+  const { composeState, closeCompose, sendEmail, appSettings, contacts, user } = useAppContext();
   
   const contentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const isSavingRef = useRef(false);
 
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<string | undefined>(undefined);
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Contact[]>([]);
 
-  const debouncedSaveDraft = useDebounce(async () => {
-    if (to || subject || body || attachments.length > 0) {
-        if (isSavingRef.current) return;
-        const { conversationId } = composeState;
-        isSavingRef.current = true;
-        const newDraftId = await saveDraft({ to, subject, body, attachments }, currentDraftId, conversationId);
-        if(newDraftId) setCurrentDraftId(newDraftId);
-        isSavingRef.current = false;
-    }
-  }, 2000);
-
   useEffect(() => {
-      if (composeState.isOpen) {
-        debouncedSaveDraft();
-      }
-  }, [to, subject, body, attachments, composeState.isOpen, debouncedSaveDraft]);
-
-  useEffect(() => {
-    if (composeState.isOpen) {
-        const { action, email, draftId: initialDraftId, recipient, bodyPrefix } = composeState;
+    if (composeState.isOpen && user) {
+        const { action, email, recipient, bodyPrefix } = composeState;
         
-        const isDraft = (action === ActionType.DRAFT && email) || email?.folder === Folder.DRAFTS;
         let finalBody = '';
 
         // Reset state for new composition
         setTo(recipient || '');
         setSubject('');
-        setCurrentDraftId(initialDraftId);
         setAttachments([]);
 
-        if (isDraft && email) {
-            setTo(email.recipientEmail);
-            setSubject(email.subject === '(no subject)' ? '' : email.subject);
-            finalBody = email.body;
-            // Note: can't restore File objects from mock data for attachments
-        } else if (action === ActionType.REPLY && email) {
+        if (action === ActionType.REPLY && email) {
             setTo(email.senderEmail);
             setSubject(email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`);
             const formattedDate = new Date(email.timestamp).toLocaleString();
@@ -101,7 +63,7 @@ const ComposeModal: React.FC = () => {
             contentRef.current.innerHTML = finalBody;
         }
     }
-  }, [composeState, appSettings.signature]);
+  }, [composeState, appSettings.signature, user]);
 
   const handleBodyChange = (e: React.FormEvent<HTMLDivElement>) => {
     const editor = e.currentTarget;
@@ -112,24 +74,10 @@ const ComposeModal: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) { addAttachments(Array.from(e.target.files)); } };
   const removeAttachment = (fileName: string) => { setAttachments(prev => prev.filter(file => file.name !== fileName)); };
 
-  const handleSend = () => {
-    sendEmail({ to, subject, body, attachments }, currentDraftId, composeState.conversationId);
+  const handleSend = async () => {
+    await sendEmail({ to, subject, body, attachments });
     closeCompose();
   };
-  
-  const handleSchedule = (date: Date) => {
-    scheduleEmail({ to, subject, body, attachments, scheduledTime: date }, currentDraftId, composeState.conversationId);
-    setIsSchedulePopoverOpen(false);
-    closeCompose();
-  }
-
-  const handleDiscard = () => {
-    if (currentDraftId) {
-        const convToDelete = composeState.email?.conversationId || composeState.conversationId;
-        if (convToDelete) deleteConversation([convToDelete]);
-    }
-    closeCompose();
-  }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(true); };
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); if (modalRef.current && !modalRef.current.contains(e.relatedTarget as Node)) { setIsDraggingOver(false); } };
@@ -222,10 +170,8 @@ const ComposeModal: React.FC = () => {
         <div className="flex items-center justify-between p-4 bg-white dark:bg-dark-surface-container border-t border-gray-200 dark:border-dark-outline">
           <div className="flex items-center space-x-2 relative">
               <div className="flex rounded-md">
-                 <button onClick={handleSend} className="px-6 py-2 text-sm font-bold text-white bg-primary rounded-l-md hover:bg-primary-hover disabled:bg-gray-400" disabled={!to && !subject && !body}>Send</button>
-                 <button onClick={() => setIsSchedulePopoverOpen(p => !p)} className="px-2 py-2 text-white bg-primary rounded-r-md border-l border-blue-400 hover:bg-primary-hover"><ChevronDownIcon className="w-4 h-4"/></button>
+                 <button onClick={handleSend} className="px-6 py-2 text-sm font-bold text-white bg-primary rounded-md hover:bg-primary-hover disabled:bg-gray-400" disabled={!to}>Send</button>
               </div>
-              {isSchedulePopoverOpen && <ScheduleSendPopover onSchedule={handleSchedule} onClose={() => setIsSchedulePopoverOpen(false)} />}
               
               <div className="flex">
                 <RichTextToolbar />
@@ -234,7 +180,7 @@ const ComposeModal: React.FC = () => {
               <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Attach files"><PaperClipIcon className="w-5 h-5"/></button>
               <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
           </div>
-          <button onClick={handleDiscard} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Discard draft"><TrashIcon className="w-5 h-5"/></button>
+          <button onClick={closeCompose} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Discard draft"><TrashIcon className="w-5 h-5"/></button>
         </div>
       </div>
     </div>

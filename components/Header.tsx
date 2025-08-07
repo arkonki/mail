@@ -10,12 +10,8 @@ import { SunIcon } from './icons/SunIcon';
 import { MoonIcon } from './icons/MoonIcon';
 import { CogIcon } from './icons/CogIcon';
 
-interface HeaderProps {
-    onLogout: () => void;
-}
-
-const Header: React.FC<HeaderProps> = ({ onLogout }) => {
-  const { user, setSearchQuery, theme, toggleTheme, toggleSidebar, view, setView } = useAppContext();
+const Header: React.FC = () => {
+  const { user, setSearchQuery, theme, toggleTheme, toggleSidebar, view, setView, logout } = useAppContext();
   const [localQuery, setLocalQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -44,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
   const handleLogoutClick = (e: React.MouseEvent) => {
       e.preventDefault();
-      onLogout();
+      logout();
       setIsMenuOpen(false);
   }
 

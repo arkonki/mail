@@ -9,11 +9,7 @@ import Settings from './Settings';
 import ContactsView from './ContactsView';
 import { useAppContext } from '../context/AppContext';
 
-interface MainLayoutProps {
-  onLogout: () => void;
-}
-
-const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
+const MainLayout: React.FC = () => {
   const { composeState, handleEscape, view, isSidebarCollapsed, navigateConversationList, selectedConversationId, openFocusedConversation } = useAppContext();
 
   useEffect(() => {
@@ -69,7 +65,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
 
   return (
     <div className="flex flex-col h-screen bg-surface dark:bg-dark-surface text-on-surface dark:text-dark-on-surface">
-      <Header onLogout={onLogout} />
+      <Header />
       <div className="flex flex-grow overflow-hidden">
         <Sidebar />
         <main className={`flex-grow transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>

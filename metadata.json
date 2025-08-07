@@ -2,8 +2,6 @@
   "name": "Modern Webmail Client",
   "description": "A modern webmail client UI that imitates the usability and functionality of services like Gmail. This is a frontend demonstration using mock data and does not connect to live mail servers.",
   "requestFramePermissions": [],
-  "env": [
-    "API_KEY"
-  ],
+  "env": [],
   "prompt": ""
 }
