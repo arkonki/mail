@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { Email, ActionType, UserFolder, Conversation, User, AppSettings, Signature, AutoResponder, Rule, Folder, Contact } from '../types';
 import { useToast } from './ToastContext';
@@ -147,7 +148,24 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   const [view, setView] = useState<View>('mail');
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
       const savedSettings = localStorage.getItem('appSettings');
-      return savedSettings ? JSON.parse(savedSettings) : initialAppSettings;
+      if (savedSettings) {
+        try {
+            const parsedSettings = JSON.parse(savedSettings);
+            // Merge saved settings with defaults to prevent crashes from missing keys on older versions
+            const mergedSettings = {
+                ...initialAppSettings,
+                ...parsedSettings,
+                signature: { ...initialAppSettings.signature, ...(parsedSettings.signature || {}) },
+                autoResponder: { ...initialAppSettings.autoResponder, ...(parsedSettings.autoResponder || {}) },
+                sendDelay: { ...initialAppSettings.sendDelay, ...(parsedSettings.sendDelay || {}) },
+                rules: parsedSettings.rules || initialAppSettings.rules,
+            };
+            return mergedSettings;
+        } catch (e) {
+            console.error("Failed to parse appSettings from localStorage", e);
+        }
+      }
+      return initialAppSettings;
   });
   const [isLoading, setIsLoading] = useState(true);
   const [pendingSend, setPendingSend] = useState<{ timerId: number, emailData: SendEmailData } | null>(null);
