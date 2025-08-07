@@ -22,7 +22,7 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggle: () => void; onReply: (email: Email) => void; onForward: (email: Email) => void; onStar: (emailId: string, isStarred: boolean) => void;}> = ({ email, isExpanded, onToggle, onReply, onForward, onStar }) => {
+const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggle: () => void; onReply: (email: Email) => void; onForward: (email: Email) => void; onStar: (conversationId: string, isStarred: boolean) => void;}> = ({ email, isExpanded, onToggle, onReply, onForward, onStar }) => {
     const formatDate = (dateString: string) => new Date(dateString).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' });
 
     return (
@@ -32,8 +32,9 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
                     <UserCircleIcon className="w-8 h-8 mr-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                     <div className="flex flex-col sm:flex-row sm:items-center">
                         <span className="font-semibold text-on-surface dark:text-dark-on-surface">{email.senderName}</span>
+                        {!isExpanded && <span className="text-sm text-gray-500 dark:text-gray-400 sm:hidden">, {formatDate(email.timestamp)}</span>}
                         {isExpanded && <span className="hidden sm:inline mx-2 text-gray-400">&middot;</span>}
-                        <span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(email.timestamp)}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">{formatDate(email.timestamp)}</span>
                     </div>
                 </div>
                 {!isExpanded && <p className="text-sm text-gray-600 dark:text-gray-400 truncate ml-4 flex-grow">{email.snippet}</p>}
@@ -43,7 +44,7 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
                     <div className="border-t border-outline dark:border-dark-outline pt-4 flex justify-between items-start">
                          <p className="text-sm text-gray-500 dark:text-gray-400">to {email.recipientEmail}</p>
                          <div className="flex items-center">
-                            <button onClick={() => onStar(email.id, email.isStarred)} className="p-2 ml-4 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20">
+                            <button onClick={() => onStar(email.conversationId, email.isStarred)} className="p-2 ml-4 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-500/20">
                                 {email.isStarred ? <StarIconSolid className="w-5 h-5 text-yellow-500" /> : <StarIconOutline className="w-5 h-5 text-gray-400" />}
                             </button>
                              <button onClick={() => onReply(email)} className="p-2 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" title="Reply"><ArrowUturnLeftIcon className="w-5 h-5"/></button>
@@ -145,7 +146,7 @@ const EmailView: React.FC = () => {
             </div>
         </div>
         {currentFolder === Folder.SPAM && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 text-sm">
+            <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 text-sm rounded-md mx-4">
                 This conversation is in Spam. Messages in Spam will be deleted after 30 days.
             </div>
         )}
@@ -159,7 +160,7 @@ const EmailView: React.FC = () => {
                 onToggle={() => handleToggleExpand(email.id)}
                 onReply={(email) => openCompose({ action: ActionType.REPLY, email })}
                 onForward={(email) => openCompose({ action: ActionType.FORWARD, email })}
-                onStar={(emailId, isStarred) => toggleStar(email.conversationId, isStarred)}
+                onStar={toggleStar}
             />
         ))}
       </div>

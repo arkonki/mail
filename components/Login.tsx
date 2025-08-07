@@ -5,8 +5,8 @@ import { useAppContext } from '../context/AppContext';
 
 const Login: React.FC = () => {
   const { login, isLoading, loginError } = useAppContext();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('test.user@example.com');
+  const [password, setPassword] = useState('password');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +27,10 @@ const Login: React.FC = () => {
             Webmail Client
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Connect to your IMAP/SMTP mail server.
+            A mock-data demonstration.
+          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+            (Enter any non-empty credentials)
           </p>
         </div>
 

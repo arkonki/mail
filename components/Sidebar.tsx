@@ -13,7 +13,6 @@ import { ClockIcon } from './icons/ClockIcon';
 import { FolderPlusIcon } from './icons/FolderPlusIcon';
 import { XMarkIcon } from './icons/XMarkIcon';
 import { ExclamationCircleIcon } from './icons/ExclamationCircleIcon';
-import { AddressBookIcon } from './icons/AddressBookIcon';
 
 
 const getSystemFolderIcon = (folderName: string): React.ReactNode => {
@@ -73,7 +72,7 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
   const handleRenameSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if(onRename) onRename(editingName);
+      if(onRename && editingName.trim()) onRename(editingName.trim());
       setIsEditing(false);
   }
 
@@ -92,6 +91,7 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
+                      onBlur={() => setIsEditing(false)}
                       autoFocus
                       className="w-full bg-transparent focus:outline-none"
                   />
@@ -161,7 +161,7 @@ const Sidebar: React.FC = () => {
     }
   }
 
-  const systemFolders = Object.values(Folder).filter(f => ![Folder.DRAFTS, Folder.SCHEDULED, Folder.SNOOZED].includes(f));
+  const systemFolders = Object.values(Folder).filter(f => ![Folder.SCHEDULED, Folder.SNOOZED].includes(f));
 
   return (
     <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
@@ -216,6 +216,7 @@ const Sidebar: React.FC = () => {
                                 onChange={(e) => setNewFolderName(e.target.value)}
                                 placeholder="New folder name"
                                 autoFocus
+                                onBlur={() => setIsCreatingFolder(false)}
                                 className="w-full py-1 text-sm bg-transparent border-b border-primary focus:outline-none"
                             />
                              <button type="button" onClick={() => setIsCreatingFolder(false)} className="p-1"><XMarkIcon className="w-4 h-4" /></button>
@@ -223,7 +224,7 @@ const Sidebar: React.FC = () => {
                     </li>
                 )}
               </ul>
-              {!isSidebarCollapsed && (
+              {!isSidebarCollapsed && !isCreatingFolder && (
                 <button onClick={() => setIsCreatingFolder(true)} className="flex items-center w-full px-4 py-2 mt-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-surface rounded-full">
                     <FolderPlusIcon className="w-5 h-5 mr-4"/>
                     Create new folder

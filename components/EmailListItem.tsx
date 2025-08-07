@@ -13,7 +13,7 @@ interface ConversationListItemProps {
 }
 
 const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation }) => {
-  const { selectedConversationId, setSelectedConversationId, toggleStar, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, moveConversations, focusedConversationId } = useAppContext();
+  const { setSelectedConversationId, toggleStar, markAsRead, deleteConversation, selectedConversationIds, toggleConversationSelection, openCompose, focusedConversationId } = useAppContext();
   const isFocused = focusedConversationId === conversation.id;
   const isChecked = selectedConversationIds.has(conversation.id);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -57,9 +57,9 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
   };
 
   const getParticipantsDisplay = () => {
-    const names = conversation.participants.map(p => p.name === 'Me' ? 'You' : p.name.split(' ')[0]);
+    const names = conversation.participants.map(p => p.name.split(' ')[0]);
     if (names.length > 2) {
-      return `${names.slice(0, 2).join(', ')}... (${names.length})`;
+      return `${names.slice(0, 2).join(', ')}...`;
     }
     return names.join(', ');
   }
@@ -112,7 +112,7 @@ const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversatio
             </button>
             <div className={`w-32 truncate mr-4 ${!conversation.isRead && !isDraftOrScheduled ? 'text-gray-900 dark:text-gray-100 font-bold' : 'text-gray-600 dark:text-gray-400'}`}>
                 {getParticipantsDisplay()}
-                {conversation.emails.length > 1 && <span className="ml-1">({conversation.emails.length})</span>}
+                {conversation.emails.length > 1 && <span className="ml-1 text-xs">({conversation.emails.length})</span>}
             </div>
             <div className="flex-grow truncate">
               {isDraftOrScheduled && latestEmail.folder === Folder.SCHEDULED && (

@@ -1,8 +1,8 @@
 
-import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { Email, ActionType, UserFolder, Conversation, User, AppSettings, Signature, AutoResponder, Rule, Folder, Contact } from '../types';
 import { useToast } from './ToastContext';
-import { mockContacts } from '../data/mockData';
+import { mockContacts, mockEmails, mockUser, mockUserFolders as initialMockUserFolders } from '../data/mockData';
 
 
 interface ComposeState {
@@ -66,6 +66,7 @@ interface AppContextType {
   deleteConversation: (conversationIds: string[]) => void;
   moveConversations: (conversationIds: string[], targetFolder: string) => void;
   markAsRead: (conversationId: string) => void;
+  markAsUnread: (conversationId: string) => void;
   markAsSpam: (conversationIds: string[]) => void;
   markAsNotSpam: (conversationIds: string[]) => void;
 
@@ -133,100 +134,51 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
 
   useEffect(() => { localStorage.setItem('appSettings', JSON.stringify(appSettings)); }, [appSettings]);
   useEffect(() => { localStorage.setItem('contacts', JSON.stringify(contacts)); }, [contacts]);
+  useEffect(() => { localStorage.setItem('emails', JSON.stringify(emails)); }, [emails]);
+  useEffect(() => { localStorage.setItem('userFolders', JSON.stringify(userFolders)); }, [userFolders]);
 
-  // --- API Abstractions ---
-  const apiFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-    if (response.status === 401) {
-      setUser(null); // Session expired or invalid
-      throw new Error('Unauthorized');
-    }
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'An API error occurred');
-    }
-    return response;
+  const loadInitialData = useCallback(() => {
+      const savedEmails = localStorage.getItem('emails');
+      const savedFolders = localStorage.getItem('userFolders');
+      setEmails(savedEmails ? JSON.parse(savedEmails) : mockEmails);
+      setUserFolders(savedFolders ? JSON.parse(savedFolders) : initialMockUserFolders);
   }, []);
-
-  const fetchEmails = useCallback(async (folder: string) => {
-      try {
-          const response = await apiFetch(`/api/emails/${encodeURIComponent(folder)}`);
-          const data: Email[] = await response.json();
-          setEmails(data);
-      } catch (error) {
-          console.error(`Failed to fetch emails for ${folder}`, error);
-          addToast(`Error loading emails from ${folder}.`);
-          setEmails([]);
-      }
-  }, [apiFetch, addToast]);
-
-  const fetchFolders = useCallback(async () => {
-    try {
-        const response = await apiFetch('/api/mailboxes');
-        const data: UserFolder[] = await response.json();
-        const systemFolderNames = Object.values(Folder);
-        // Exclude system folders from user folders list if they exist
-        const filteredUserFolders = data.filter(f => !systemFolderNames.includes(f.name as Folder));
-        setUserFolders(filteredUserFolders);
-    } catch(error) {
-        console.error("Failed to fetch folders", error);
-        addToast("Error loading folders.");
-    }
-  }, [apiFetch, addToast]);
 
   const checkUserSession = useCallback(async () => {
     setIsLoading(true);
-    try {
-      const response = await apiFetch('/api/me');
-      const userData = await response.json();
-      setUser(userData);
-      await fetchFolders();
-      await fetchEmails(Folder.INBOX);
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiFetch, fetchFolders, fetchEmails]);
+    // In a real app, you'd check a session token. Here, we just auto-login the mock user.
+    setUser(mockUser);
+    loadInitialData();
+    setCurrentFolder(Folder.INBOX);
+    setTimeout(() => setIsLoading(false), 500); // Simulate loading
+  }, [loadInitialData]);
   
   const login = useCallback(async (email: string, pass: string) => {
     setIsLoading(true);
     setLoginError(null);
-    try {
-      await apiFetch('/api/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password: pass }),
-      });
-      await checkUserSession();
-    } catch (error: any) {
-      console.error('Login failed:', error);
-      setLoginError(error.message);
-      setUser(null);
-      setIsLoading(false);
+    // Mock login: succeed with any non-empty credentials
+    if (email && pass) {
+        await checkUserSession();
+        addToast(`Welcome, ${mockUser.name}!`);
+    } else {
+        setLoginError('Please enter both email and password.');
+        setUser(null);
+        setIsLoading(false);
     }
-  }, [apiFetch, checkUserSession]);
+  }, [checkUserSession, addToast]);
 
   const logout = useCallback(async () => {
-      try {
-        await apiFetch('/api/logout', { method: 'POST' });
-      } catch (error) {
-        console.error("Logout failed on server:", error);
-      } finally {
-        setUser(null);
-        setEmails([]);
-        setUserFolders([]);
-        setCurrentFolder(Folder.INBOX);
-        setSelectedConversationId(null);
-        setLoginError(null);
-        addToast('You have been logged out.');
-      }
-  }, [apiFetch, addToast]);
+    setUser(null);
+    setEmails([]);
+    setUserFolders([]);
+    setCurrentFolder(Folder.INBOX);
+    setSelectedConversationId(null);
+    setLoginError(null);
+    // Optionally clear mock data from storage on logout
+    // localStorage.removeItem('emails');
+    // localStorage.removeItem('userFolders');
+    addToast('You have been logged out.');
+  }, [addToast]);
 
 
   // --- Data Transformation ---
@@ -245,7 +197,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
       .map(([id, convEmails]) => {
         convEmails.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         const lastEmail = convEmails[convEmails.length - 1];
-        const participants = [...new Map(convEmails.map(e => [e.senderEmail, { name: e.senderName, email: e.senderEmail }])).values()];
+        const participants = [...new Map(convEmails.map(e => [e.senderEmail, { name: e.senderEmail === user?.email ? 'Me' : e.senderName, email: e.senderEmail }])).values()];
 
         return {
           id,
@@ -255,18 +207,17 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
           lastTimestamp: lastEmail.timestamp,
           isRead: convEmails.every(e => e.isRead),
           isStarred: convEmails.some(e => e.isStarred),
-          isSnoozed: false, // Snooze not implemented with live backend
+          isSnoozed: false,
           folder: lastEmail.folder,
           hasAttachments: convEmails.some(e => e.attachments && e.attachments.length > 0)
         };
       })
       .sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime());
-  }, [emails]);
+  }, [emails, user]);
 
 
   const displayedConversations = useMemo(() => {
     let filteredConversations = allConversations;
-    // Search takes precedence
     if (searchQuery.length > 0) {
         const lowercasedQuery = searchQuery.toLowerCase();
         filteredConversations = filteredConversations.filter(conv => 
@@ -284,42 +235,15 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     return filteredConversations;
   }, [allConversations, currentFolder, searchQuery]);
   
-  const performMailAction = useCallback(async (endpoint: string, payload: object, successMessage: string) => {
-    try {
-        await apiFetch(endpoint, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        addToast(successMessage);
-        await fetchEmails(currentFolder);
-    } catch (error: any) {
-        console.error(`Action failed at ${endpoint}:`, error);
-        addToast(`Error: ${error.message}`, { duration: 5000 });
-    }
-  }, [apiFetch, addToast, currentFolder, fetchEmails]);
-  
-  const getActionsPayloadForConversations = useCallback((conversationIds: string[]) => {
-      const emailsForConvs = emails.filter(e => conversationIds.includes(e.conversationId));
-      const uidsByMailbox = emailsForConvs.reduce((acc, email) => {
-        if (!acc[email.folder]) acc[email.folder] = [];
-        acc[email.folder].push(Number(email.id));
-        return acc;
-      }, {} as Record<string, number[]>);
-      return Object.entries(uidsByMailbox).map(([mailbox, uids]) => ({ mailbox, uids }));
-  }, [emails]);
-
-
-  // --- Context Functions ---
 
   const setCurrentFolderCallback = useCallback((folder: string) => {
     setView('mail');
     setCurrentFolder(folder);
-    fetchEmails(folder);
     setSelectedConversationId(null);
     setFocusedConversationId(null);
     setSearchQuery('');
     setSelectedConversationIds(new Set());
-  }, [fetchEmails]);
+  }, []);
 
   const openCompose = useCallback((config: { action?: ActionType; email?: Email; recipient?: string; bodyPrefix?: string; } = {}) => {
     setComposeState({ isOpen: true, ...config });
@@ -330,38 +254,64 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   const deselectAllConversations = useCallback(() => setSelectedConversationIds(new Set()), []);
   
   const moveConversations = useCallback(async (conversationIds: string[], targetFolder: string) => {
-    const actions = getActionsPayloadForConversations(conversationIds);
-    if (actions.length === 0) return;
-    
-    await performMailAction('/api/actions/move', { actions, targetFolder }, `Moved ${conversationIds.length} conversation(s) to ${targetFolder}.`);
-    
+    setEmails(prevEmails => {
+        return prevEmails.map(email => 
+            conversationIds.includes(email.conversationId)
+                ? { ...email, folder: targetFolder, isRead: true } 
+                : email
+        );
+    });
+    addToast(`Moved ${conversationIds.length} conversation(s) to ${targetFolder}.`);
     if(selectedConversationIds.size > 0) deselectAllConversations();
     if(conversationIds.includes(selectedConversationId!)) setSelectedConversationId(null);
-  }, [getActionsPayloadForConversations, performMailAction, selectedConversationId, selectedConversationIds, deselectAllConversations]);
+  }, [addToast, selectedConversationId, selectedConversationIds.size, deselectAllConversations]);
 
   const sendEmail = useCallback(async (data: { to: string; subject: string; body: string; attachments: File[] }) => {
-    await performMailAction('/api/send', data, 'Message sent.');
-    // Optionally, switch to and refresh 'Sent' folder
-    if (currentFolder !== Folder.SENT) {
-        // This is a UX decision. For now, we just refresh the current folder.
-        // A more advanced implementation might fetch sent items in the background.
-    }
-  }, [performMailAction, currentFolder]);
+    if (!user) return;
+    const newEmail: Email = {
+      id: `email-${Date.now()}`,
+      conversationId: `conv-${Date.now()}`,
+      senderName: user.name,
+      senderEmail: user.email,
+      recipientEmail: data.to,
+      subject: data.subject || '(no subject)',
+      body: data.body,
+      snippet: data.body.replace(/<[^>]*>?/gm, '').substring(0, 100),
+      timestamp: new Date().toISOString(),
+      isRead: true,
+      isStarred: false,
+      folder: Folder.SENT,
+      attachments: data.attachments.map(f => ({fileName: f.name, fileSize: f.size})),
+    };
+
+    setEmails(prev => [newEmail, ...prev]);
+    addToast('Message sent.');
+    setCurrentFolderCallback(Folder.SENT);
+  }, [addToast, user, setCurrentFolderCallback]);
   
   const toggleStar = useCallback(async (conversationId: string, isCurrentlyStarred: boolean) => {
-    const actions = getActionsPayloadForConversations([conversationId]);
-    if (actions.length === 0) return;
-    await performMailAction('/api/actions/star', { actions, isStarred: !isCurrentlyStarred }, 'Star updated.');
-  }, [getActionsPayloadForConversations, performMailAction]);
+    setEmails(prevEmails => 
+        prevEmails.map(email => 
+            email.conversationId === conversationId ? { ...email, isStarred: !isCurrentlyStarred } : email
+        )
+    );
+    addToast('Star updated.');
+  }, [addToast]);
 
   const deleteConversation = useCallback(async (conversationIds: string[]) => {
-    const actions = getActionsPayloadForConversations(conversationIds);
-    if (actions.length === 0) return;
+    setEmails(prevEmails => {
+        const emailsToTrash = prevEmails.filter(e => conversationIds.includes(e.conversationId) && e.folder !== Folder.TRASH);
+        const emailsToDelete = prevEmails.filter(e => conversationIds.includes(e.conversationId) && e.folder === Folder.TRASH);
+        const remainingEmails = prevEmails.filter(e => !conversationIds.includes(e.conversationId));
 
-    await performMailAction('/api/actions/delete', { actions }, `${conversationIds.length} conversation(s) moved to Trash.`);
+        const trashedEmails = emailsToTrash.map(e => ({...e, folder: Folder.TRASH}));
+        return [...remainingEmails, ...trashedEmails];
+    });
+
+    addToast(`${conversationIds.length} conversation(s) moved to Trash.`);
     if(selectedConversationIds.size > 0) deselectAllConversations();
     if(conversationIds.includes(selectedConversationId!)) setSelectedConversationId(null);
-  }, [getActionsPayloadForConversations, performMailAction, selectedConversationId, selectedConversationIds, deselectAllConversations]);
+  }, [addToast, selectedConversationId, selectedConversationIds.size, deselectAllConversations]);
 
   const handleEscape = useCallback(() => {
     if (composeState.isOpen) closeCompose();
@@ -398,6 +348,14 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   const selectAllConversations = useCallback((conversationIds: string[]) => {
     setSelectedConversationIds(new Set(conversationIds));
   }, []);
+
+  const markConversationsAsRead = useCallback((conversationIds: string[], isRead: boolean) => {
+    setEmails(prevEmails => 
+        prevEmails.map(email => 
+            conversationIds.includes(email.conversationId) ? { ...email, isRead } : email
+        )
+    );
+  }, []);
   
   const bulkAction = useCallback(async (action: 'read' | 'unread' | 'delete') => {
     const ids = Array.from(selectedConversationIds);
@@ -406,22 +364,23 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     if (action === 'delete') {
       await deleteConversation(ids);
     } else {
-      const endpoint = action === 'read' ? '/api/actions/mark-as-read' : '/api/actions/mark-as-unread';
-      const actions = getActionsPayloadForConversations(ids);
-      await performMailAction(endpoint, { actions }, `Marked ${ids.length} conversation(s) as ${action}.`);
+      markConversationsAsRead(ids, action === 'read');
+      addToast(`Marked ${ids.length} conversation(s) as ${action}.`);
     }
     deselectAllConversations();
-  }, [selectedConversationIds, deleteConversation, deselectAllConversations, getActionsPayloadForConversations, performMailAction]);
+  }, [selectedConversationIds, deleteConversation, deselectAllConversations, markConversationsAsRead, addToast]);
 
   const bulkDelete = useCallback(() => bulkAction('delete'), [bulkAction]);
   const bulkMarkAsRead = useCallback(() => bulkAction('read'), [bulkAction]);
   const bulkMarkAsUnread = useCallback(() => bulkAction('unread'), [bulkAction]);
   
   const markAsRead = useCallback(async (conversationId: string) => {
-    const actions = getActionsPayloadForConversations([conversationId]);
-    // No toast message for this common action
-    await performMailAction('/api/actions/mark-as-read', { actions }, '');
-  }, [getActionsPayloadForConversations, performMailAction]);
+    markConversationsAsRead([conversationId], true);
+  }, [markConversationsAsRead]);
+  
+  const markAsUnread = useCallback(async (conversationId: string) => {
+    markConversationsAsRead([conversationId], false);
+  }, [markConversationsAsRead]);
 
   const navigateConversationList = useCallback((direction: 'up' | 'down') => {
     if (displayedConversations.length === 0) return;
@@ -429,8 +388,8 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     const index = displayedConversations.findIndex(c => c.id === currentId);
     let nextIndex = index + (direction === 'down' ? 1 : -1);
     nextIndex = Math.max(0, Math.min(displayedConversations.length - 1, nextIndex));
-    if (nextIndex !== index) {
-      setFocusedConversationId(displayedConversations[nextIndex].id);
+    if (nextIndex !== index || !currentId) {
+      setFocusedConversationId(displayedConversations[nextIndex]?.id || null);
     }
   }, [displayedConversations, focusedConversationId, selectedConversationId]);
   
@@ -444,9 +403,36 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, [focusedConversationId, allConversations, markAsRead]);
 
-  const createUserFolder = useCallback((name: string) => addToast("Folder creation not implemented."), [addToast]);
-  const renameUserFolder = useCallback((id: string, newName: string) => addToast("Folder rename not implemented."), [addToast]);
-  const deleteUserFolder = useCallback((id: string) => addToast("Folder deletion not implemented."), [addToast]);
+  const createUserFolder = useCallback((name: string) => {
+      const newFolder = { id: `folder-${Date.now()}`, name };
+      setUserFolders(prev => [...prev, newFolder]);
+      addToast(`Folder "${name}" created.`);
+  }, [addToast]);
+
+  const renameUserFolder = useCallback((id: string, newName: string) => {
+      let oldName = '';
+      setUserFolders(prev => prev.map(f => {
+          if (f.id === id) {
+              oldName = f.name;
+              return { ...f, name: newName };
+          }
+          return f;
+      }));
+      setEmails(prev => prev.map(e => e.folder === oldName ? { ...e, folder: newName } : e));
+      addToast(`Folder renamed to "${newName}".`);
+  }, [addToast]);
+
+  const deleteUserFolder = useCallback((id: string) => {
+      let folderToDelete: UserFolder | undefined;
+      setUserFolders(prev => {
+          folderToDelete = prev.find(f => f.id === id);
+          return prev.filter(f => f.id !== id);
+      });
+      if (folderToDelete) {
+          setEmails(prev => prev.filter(e => e.folder !== folderToDelete?.name));
+          addToast(`Folder "${folderToDelete.name}" deleted.`);
+      }
+  }, [addToast]);
 
   const markAsSpam = useCallback((conversationIds: string[]) => {
     moveConversations(conversationIds, Folder.SPAM);
@@ -474,10 +460,26 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     setSelectedContactId(null);
   }, [addToast]);
 
-  const updateSignature = useCallback((signature: Signature) => setAppSettings(prev => ({...prev, signature})), []);
-  const updateAutoResponder = useCallback((autoResponder: AutoResponder) => setAppSettings(prev => ({...prev, autoResponder})), []);
-  const addRule = useCallback((rule: Omit<Rule, 'id'>) => { addToast("Rules not implemented on backend."); }, [addToast]);
-  const deleteRule = useCallback((ruleId: string) => { addToast("Rules not implemented on backend."); }, [addToast]);
+  const updateSignature = useCallback((signature: Signature) => {
+      setAppSettings(prev => ({...prev, signature}));
+      addToast('Signature settings updated.');
+  }, [addToast]);
+
+  const updateAutoResponder = useCallback((autoResponder: AutoResponder) => {
+      setAppSettings(prev => ({...prev, autoResponder}));
+      addToast('Auto-responder settings updated.');
+  }, [addToast]);
+
+  const addRule = useCallback((ruleData: Omit<Rule, 'id'>) => {
+      const newRule = { ...ruleData, id: `rule-${Date.now()}`};
+      setAppSettings(prev => ({...prev, rules: [...prev.rules, newRule]}));
+      addToast("Rule added.");
+  }, [addToast]);
+
+  const deleteRule = useCallback((ruleId: string) => {
+      setAppSettings(prev => ({ ...prev, rules: prev.rules.filter(r => r.id !== ruleId) }));
+      addToast("Rule deleted.");
+  }, [addToast]);
 
   const setViewCallback = useCallback((newView: View) => {
     setView(newView);
@@ -493,7 +495,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
     login, logout, checkUserSession,
     setCurrentFolder: setCurrentFolderCallback, setSelectedConversationId, setSearchQuery,
     openCompose, closeCompose, sendEmail,
-    toggleStar, deleteConversation, moveConversations, markAsRead, markAsSpam, markAsNotSpam,
+    toggleStar, deleteConversation, moveConversations, markAsRead, markAsUnread, markAsSpam, markAsNotSpam,
     toggleConversationSelection, selectAllConversations, deselectAllConversations, bulkDelete, bulkMarkAsRead, bulkMarkAsUnread,
     toggleTheme, toggleSidebar, handleEscape, navigateConversationList, openFocusedConversation, setView: setViewCallback,
     updateSignature, updateAutoResponder, addRule, deleteRule,

@@ -1,5 +1,5 @@
 
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
@@ -83,7 +83,7 @@ const findSpecialFolder = (boxes: { [name: string]: any }, folderKeywords: strin
     return null;
 }
 
-app.post('/api/login', async (req: Request, res: Response) => {
+app.post('/api/login', async (req: express.Request, res: express.Response) => {
     const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
@@ -107,7 +107,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/me', (req: Request, res: Response) => {
+app.get('/api/me', (req: express.Request, res: express.Response) => {
     if (req.session.user) {
         res.status(200).json({ email: req.session.user.email, name: req.session.user.name });
     } else {
@@ -115,7 +115,7 @@ app.get('/api/me', (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/logout', (req: Request, res: Response) => {
+app.post('/api/logout', (req: express.Request, res: express.Response) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).send('Could not log out.');
@@ -126,14 +126,14 @@ app.post('/api/logout', (req: Request, res: Response) => {
 });
 
 // Middleware to check for authentication
-const checkAuth = (req: Request, res: Response, next: NextFunction) => {
+const checkAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (!req.session.user) {
         return res.status(401).send('Not authenticated');
     }
     next();
 };
 
-app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
+app.get('/api/settings', checkAuth, (req: express.Request, res: express.Response) => {
     const email = req.session.user!.email;
     if (!userSettings[email]) {
         userSettings[email] = {
@@ -145,14 +145,14 @@ app.get('/api/settings', checkAuth, (req: Request, res: Response) => {
     res.json(userSettings[email]);
 });
 
-app.post('/api/settings', checkAuth, (req: Request, res: Response) => {
+app.post('/api/settings', checkAuth, (req: express.Request, res: express.Response) => {
     const email = req.session.user!.email;
     userSettings[email] = { ...userSettings[email], ...req.body.settings };
     res.status(200).json(userSettings[email]);
 });
 
 
-app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
+app.get('/api/mailboxes', checkAuth, async (req: express.Request, res: express.Response) => {
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
         const boxes = await connection.getBoxes();
@@ -168,7 +168,7 @@ app.get('/api/mailboxes', checkAuth, async (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) => {
+app.get('/api/emails/:mailbox', checkAuth, async (req: express.Request, res: express.Response) => {
     const mailbox = req.params.mailbox;
     try {
         const connection = await Imap.connect(getImapConfig(req.session.user!));
@@ -220,7 +220,7 @@ app.get('/api/emails/:mailbox', checkAuth, async (req: Request, res: Response) =
     }
 });
 
-app.post('/api/send', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/send', checkAuth, async (req: express.Request, res: express.Response) => {
     const { to, subject, body } = req.body;
     const transport = getSmtpTransport(req.session.user!);
 
@@ -281,7 +281,7 @@ const performAction = async (user: { email: string; pass: string; name: string }
     }
 };
 
-app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/star', checkAuth, async (req: express.Request, res: express.Response) => {
     const { actions }: ActionRequest = req.body;
     const { isStarred } = req.body;
     try {
@@ -295,7 +295,7 @@ app.post('/api/actions/star', checkAuth, async (req: Request, res: Response) => 
     }
 });
 
-app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/mark-as-read', checkAuth, async (req: express.Request, res: express.Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.addFlags(uids, '\\Seen'));
@@ -306,7 +306,7 @@ app.post('/api/actions/mark-as-read', checkAuth, async (req: Request, res: Respo
     }
 });
 
-app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/mark-as-unread', checkAuth, async (req: express.Request, res: express.Response) => {
     const { actions }: ActionRequest = req.body;
     try {
         await performAction(req.session.user!, actions, (conn, uids) => conn.delFlags(uids, '\\Seen'));
@@ -317,7 +317,7 @@ app.post('/api/actions/mark-as-unread', checkAuth, async (req: Request, res: Res
     }
 });
 
-app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/move', checkAuth, async (req: express.Request, res: express.Response) => {
   const { actions, targetFolder }: { actions: Action[], targetFolder: string } = req.body;
   try {
     await performAction(req.session.user!, actions, (conn, uids) => conn.moveMessage(uids.map(String), targetFolder));
@@ -328,7 +328,7 @@ app.post('/api/actions/move', checkAuth, async (req: Request, res: Response) => 
   }
 });
 
-app.post('/api/actions/delete', checkAuth, async (req: Request, res: Response) => {
+app.post('/api/actions/delete', checkAuth, async (req: express.Request, res: express.Response) => {
     const { actions }: ActionRequest = req.body;
     const connection = await Imap.connect(getImapConfig(req.session.user!));
     try {
@@ -360,9 +360,9 @@ app.post('/api/actions/delete', checkAuth, async (req: Request, res: Response) =
 });
 
 
-// The following block can be used for local development.
-// For serverless deployment (e.g., Netlify), this block should be commented out or removed.
-if (process.env.NODE_ENV !== 'production') {
+// The following block is for local development only.
+// It is excluded from serverless builds by checking for the NETLIFY env var.
+if (!process.env.NETLIFY) {
     const PORT = process.env.PORT || 3001;
     app.listen(PORT, () => {
         console.log(`Backend server running for local development on http://localhost:${PORT}`);
