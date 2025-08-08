@@ -16,6 +16,7 @@ import LabelModal from './LabelModal';
 import { FolderIcon } from './icons/FolderIcon';
 import { FolderPlusIcon } from './icons/FolderPlusIcon';
 import { ArchiveBoxIcon } from './icons/ArchiveBoxIcon';
+import FolderModal from './FolderModal';
 
 
 const getSystemFolderIcon = (folderName: string): React.ReactNode => {
@@ -98,10 +99,12 @@ const NavItem: React.FC<NavItemProps> = ({ name, icon, isActive, onClick, isSide
 const Sidebar: React.FC = () => {
   const { 
     currentSelection, setCurrentSelection, openCompose, labels, userFolders, isSidebarCollapsed, 
-    applyLabel, moveConversations, createFolder, view, setView 
+    applyLabel, moveConversations, deleteFolder, view 
   } = useAppContext();
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [editingLabel, setEditingLabel] = useState<Label | null>(null);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<UserFolder | null>(null);
 
   const handleDropOnFolder = (e: React.DragEvent, folderId: string) => {
     e.preventDefault();
@@ -132,29 +135,33 @@ const Sidebar: React.FC = () => {
     setIsLabelModalOpen(true);
   }
 
-  const handleCreateFolder = () => {
-      const folderName = prompt('Enter new folder name:');
-      if (folderName) {
-          createFolder(folderName);
-      }
+  const handleOpenFolderModal = (folder: UserFolder | null = null) => {
+      setEditingFolder(folder);
+      setIsFolderModalOpen(true);
+  }
+
+  const handleDeleteFolder = (folder: UserFolder) => {
+    if (window.confirm(`Are you sure you want to delete the folder "${folder.name}"? All emails inside will be moved to Archive.`)) {
+        deleteFolder(folder.id);
+    }
   }
 
   const systemFolders = Object.values(SystemFolder);
 
   return (
-    <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col justify-between transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-      <div>
-        <div className="p-2">
-          <button 
-            onClick={() => openCompose()}
-            className={`flex items-center w-full px-4 py-3 space-x-2 font-semibold text-gray-700 dark:text-gray-800 transition-all duration-150 bg-compose-accent rounded-2xl hover:shadow-lg justify-center`}
-            title={isSidebarCollapsed ? 'Compose' : undefined}
-            >
-            <PencilIcon className="w-6 h-6" />
-            {!isSidebarCollapsed && <span>Compose</span>}
-          </button>
-        </div>
-        <nav className="mt-4">
+    <aside className={`fixed top-0 pt-16 h-full flex-shrink-0 p-2 bg-surface-container dark:bg-dark-surface-container flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+      <div className="flex-shrink-0 p-2">
+        <button 
+          onClick={() => openCompose()}
+          className={`flex items-center w-full px-4 py-3 space-x-2 font-semibold text-gray-700 dark:text-gray-800 transition-all duration-150 bg-compose-accent rounded-2xl hover:shadow-lg justify-center`}
+          title={isSidebarCollapsed ? 'Compose' : undefined}
+          >
+          <PencilIcon className="w-6 h-6" />
+          {!isSidebarCollapsed && <span>Compose</span>}
+        </button>
+      </div>
+      <div className="flex-grow overflow-y-auto mt-2 pr-1">
+        <nav>
           <ul>
             {systemFolders.map((folder) => (
               <NavItem
@@ -180,7 +187,7 @@ const Sidebar: React.FC = () => {
               <div className={`flex items-center justify-between px-4 mb-1 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
                  <h3 className={`text-xs font-semibold uppercase text-gray-500 dark:text-gray-400`}>{isSidebarCollapsed ? "F" : "Folders"}</h3>
                  {!isSidebarCollapsed && (
-                     <button onClick={handleCreateFolder} className="p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600" title="Create new folder">
+                     <button onClick={() => handleOpenFolderModal(null)} className="p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600" title="Create new folder">
                          <FolderPlusIcon className="w-4 h-4" />
                      </button>
                  )}
@@ -195,8 +202,8 @@ const Sidebar: React.FC = () => {
                     onClick={() => setCurrentSelection('folder', folder.id)}
                     isSidebarCollapsed={isSidebarCollapsed}
                     onDrop={(e) => handleDropOnFolder(e, folder.id)}
-                    onEdit={() => setView('settings')} // Should navigate to settings to edit
-                    onDelete={() => setView('settings')}
+                    onEdit={() => handleOpenFolderModal(folder)}
+                    onDelete={() => handleDeleteFolder(folder)}
                     isEditable
                   />
                 ))}
@@ -222,7 +229,7 @@ const Sidebar: React.FC = () => {
                     isSidebarCollapsed={isSidebarCollapsed}
                     onDrop={(e) => handleDropOnLabel(e, label.id)}
                     onEdit={() => handleOpenLabelModal(label)}
-                    onDelete={() => setView('settings')}
+                    onDelete={() => { /* Should be handled in settings */}}
                     isEditable
                   />
                 ))}
@@ -230,6 +237,13 @@ const Sidebar: React.FC = () => {
           </div>
         </nav>
       </div>
+      {isFolderModalOpen && (
+          <FolderModal 
+              isOpen={isFolderModalOpen}
+              onClose={() => setIsFolderModalOpen(false)}
+              folder={editingFolder}
+          />
+      )}
       {isLabelModalOpen && (
           <LabelModal 
               isOpen={isLabelModalOpen}

@@ -40,13 +40,18 @@ const SingleEmailInThread: React.FC<{ email: Email; isExpanded: boolean; onToggl
     return (
         <div className="border border-outline dark:border-dark-outline rounded-lg mb-4 bg-white dark:bg-dark-surface-container overflow-hidden">
             <div className="p-4 flex justify-between items-center cursor-pointer" onClick={onToggle}>
-                <div className="flex items-center">
+                <div className="flex items-center min-w-0">
                     <UserCircleIcon className="w-8 h-8 mr-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                    <div className="flex flex-col sm:flex-row sm:items-center">
-                        <span className="font-semibold text-on-surface dark:text-dark-on-surface">{email.senderName}</span>
-                        {!isExpanded && <span className="text-sm text-gray-500 dark:text-gray-400 sm:hidden">, {formatDate(email.timestamp)}</span>}
-                        {isExpanded && <span className="hidden sm:inline mx-2 text-gray-400">&middot;</span>}
-                        <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">{formatDate(email.timestamp)}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center min-w-0">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                            <span className="font-semibold text-on-surface dark:text-dark-on-surface truncate" title={email.senderName}>{email.senderName}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400 truncate" title={email.senderEmail}>&lt;{email.senderEmail}&gt;</span>
+                            {!isExpanded && <span className="text-sm text-gray-500 dark:text-gray-400 sm:hidden">, {formatDate(email.timestamp)}</span>}
+                        </div>
+                        <div className="hidden sm:flex items-center">
+                            {isExpanded && <span className="mx-2 text-gray-400">&middot;</span>}
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(email.timestamp)}</span>
+                        </div>
                     </div>
                 </div>
                 {!isExpanded && <p className="text-sm text-gray-600 dark:text-gray-400 truncate ml-4 flex-grow">{email.snippet}</p>}
