@@ -14,7 +14,7 @@ export const mockLabels: Label[] = [
 ];
 
 export const mockUserFolders: UserFolder[] = [
-    { id: 'folder-1', name: 'Project Alpha' },
+    { id: 'folder-1', name: 'Project Phoenix' },
     { id: 'folder-2', name: 'Conference 2024' },
 ];
 
@@ -27,10 +27,15 @@ export const mockContacts: Contact[] = [
   { id: 'contact-6', name: 'Figma', email: 'team@figma.com', company: 'Figma' },
   { id: 'contact-7', name: 'Mom', email: 'mom@example.com', phone: '555-123-4567', notes: 'Call on weekends!' },
   { id: 'user', name: mockUser.name, email: mockUser.email},
+  { id: 'contact-8', name: 'Tech Weekly', email: 'newsletter@techweekly.com' },
+  { id: 'contact-9', name: 'SocialNet', email: 'notification@social.net' },
+  { id: 'contact-10', name: 'OnlineStore', email: 'orders@estore.com' },
+  { id: 'contact-11', name: 'Chris Green', email: 'chris.g@example.com', company: 'Solutions Co.' },
+  { id: 'contact-12', name: 'Marketing Team', email: 'marketing-updates@example.com' },
 ];
 
 export const mockContactGroups: ContactGroup[] = [
-    { id: 'group-1', name: 'Work Team', contactIds: ['contact-1', 'contact-3'] },
+    { id: 'group-1', name: 'Work Team', contactIds: ['contact-1', 'contact-3', 'contact-11'] },
     { id: 'group-2', name: 'Family', contactIds: ['contact-7'] },
 ];
 
@@ -40,6 +45,15 @@ const yesterday = new Date(now);
 yesterday.setDate(now.getDate() - 1);
 const twoDaysAgo = new Date(now);
 twoDaysAgo.setDate(now.getDate() - 2);
+const threeDaysAgo = new Date(now);
+threeDaysAgo.setDate(now.getDate() - 3);
+const fourDaysAgo = new Date(now);
+fourDaysAgo.setDate(now.getDate() - 4);
+const fiveDaysAgo = new Date(now);
+fiveDaysAgo.setDate(now.getDate() - 5);
+const nextWeek = new Date(now);
+nextWeek.setDate(now.getDate() + 7);
+
 
 export const mockEmails: Email[] = [
     // --- Conversation 1: Design Feedback ---
@@ -177,6 +191,164 @@ export const mockEmails: Email[] = [
         body: `<p>Your deployment is ready!</p>`,
         snippet: 'Your deployment is ready!',
         timestamp: new Date(now.getTime() - 4 * 24 * 60 * 60000).toISOString(),
+        isRead: true,
+        folderId: SystemFolder.ARCHIVE,
+        labelIds: [],
+    },
+     // --- Conversation 8: Project Phoenix thread ---
+    {
+        id: 'email-10',
+        conversationId: 'conv-8',
+        senderName: 'Chris Green',
+        senderEmail: 'chris.g@example.com',
+        recipientEmail: mockUser.email,
+        subject: 'Project Phoenix Kick-off',
+        body: `<p>Hi team,</p><p>Excited to kick off Project Phoenix! The initial project brief is attached. Let's schedule a meeting for early next week to discuss.</p><p>Best,</p><p>Chris</p>`,
+        snippet: 'Excited to kick off Project Phoenix! The initial project brief is attached...',
+        timestamp: threeDaysAgo.toISOString(),
+        isRead: true,
+        folderId: 'folder-1', // Project Phoenix folder
+        labelIds: ['label-3'], // Work label
+        attachments: [{ fileName: 'Project-Phoenix-Brief.pdf', fileSize: 1200000 }],
+    },
+    {
+        id: 'email-11',
+        conversationId: 'conv-8',
+        senderName: mockUser.name,
+        senderEmail: mockUser.email,
+        recipientEmail: 'chris.g@example.com',
+        cc: 'alex.j@example.com',
+        subject: 'Re: Project Phoenix Kick-off',
+        body: `<p>Thanks, Chris. Looks good.</p><p>I've looped in Alex who will be helping out on this. I'm free on Monday or Tuesday morning.</p>`,
+        snippet: "Thanks, Chris. Looks good. I've looped in Alex...",
+        timestamp: new Date(threeDaysAgo.getTime() + 5 * 60000).toISOString(),
+        isRead: true,
+        folderId: SystemFolder.SENT,
+        labelIds: ['label-3'],
+    },
+    {
+        id: 'email-12',
+        conversationId: 'conv-8',
+        senderName: 'Chris Green',
+        senderEmail: 'chris.g@example.com',
+        recipientEmail: mockUser.email,
+        subject: 'Re: Project Phoenix Kick-off',
+        body: `<p>Perfect, let's aim for Monday at 10 AM. I'll send out an invite.</p>`,
+        snippet: 'Perfect, let\'s aim for Monday at 10 AM...',
+        timestamp: new Date(threeDaysAgo.getTime() + 10 * 60000).toISOString(),
+        isRead: false,
+        folderId: 'folder-1',
+        labelIds: ['label-3'],
+    },
+
+    // --- Conversation 9: Newsletter ---
+    {
+        id: 'email-13',
+        conversationId: 'conv-9',
+        senderName: 'Tech Weekly',
+        senderEmail: 'newsletter@techweekly.com',
+        recipientEmail: mockUser.email,
+        subject: 'Your weekly dose of tech news!',
+        body: `<p>This week in tech: The rise of AI assistants, the future of quantum computing, and a deep dive into the latest framework updates. Click here to read more.</p>`,
+        snippet: 'This week in tech: The rise of AI assistants...',
+        timestamp: yesterday.toISOString(),
+        isRead: true,
+        folderId: SystemFolder.INBOX,
+        labelIds: [],
+    },
+
+    // --- Conversation 10: Receipt ---
+    {
+        id: 'email-14',
+        conversationId: 'conv-10',
+        senderName: 'OnlineStore',
+        senderEmail: 'orders@estore.com',
+        recipientEmail: mockUser.email,
+        subject: 'Your OnlineStore Order #123-4567890 is confirmed',
+        body: `<p>Thank you for your order! We'll notify you when it ships.</p>`,
+        snippet: 'Thank you for your order! We\'ll notify you when it ships.',
+        timestamp: twoDaysAgo.toISOString(),
+        isRead: true,
+        folderId: SystemFolder.INBOX,
+        labelIds: ['label-2'], // Receipts label
+    },
+
+    // --- Conversation 11: Social Notification ---
+    {
+        id: 'email-15',
+        conversationId: 'conv-11',
+        senderName: 'SocialNet',
+        senderEmail: 'notification@social.net',
+        recipientEmail: mockUser.email,
+        subject: 'Jane Doe mentioned you in a comment',
+        body: `<p><strong>Jane Doe:</strong> "@${mockUser.name} what are your thoughts on this?"</p>`,
+        snippet: 'Jane Doe mentioned you in a comment',
+        timestamp: now.toISOString(),
+        isRead: false,
+        folderId: SystemFolder.INBOX,
+        labelIds: [],
+    },
+
+    // --- Conversation 12: Another starred email ---
+    {
+        id: 'email-16',
+        conversationId: 'conv-12',
+        senderName: 'Figma',
+        senderEmail: 'team@figma.com',
+        recipientEmail: mockUser.email,
+        subject: 'New features in Figma this month',
+        body: `<p>Check out the new features we've launched to improve your design workflow.</p>`,
+        snippet: 'Check out the new features we\'ve launched...',
+        timestamp: fourDaysAgo.toISOString(),
+        isRead: true,
+        folderId: SystemFolder.INBOX,
+        labelIds: [SystemLabel.STARRED],
+    },
+
+    // --- Conversation 13: Scheduled email ---
+    {
+        id: 'email-17',
+        conversationId: 'conv-13',
+        senderName: mockUser.name,
+        senderEmail: mockUser.email,
+        recipientEmail: 'chris.g@example.com',
+        subject: 'Follow up on Phoenix',
+        body: `<p>Hi Chris,</p><p>Just a reminder about our meeting on Monday.</p>`,
+        snippet: 'Just a reminder about our meeting on Monday.',
+        timestamp: now.toISOString(),
+        isRead: true,
+        folderId: SystemFolder.SCHEDULED,
+        labelIds: [],
+        scheduledSendTime: nextWeek.toISOString(),
+    },
+
+    // --- Conversation 14: Long subject line ---
+    {
+        id: 'email-18',
+        conversationId: 'conv-14',
+        senderName: 'Jane Doe',
+        senderEmail: 'jane.d@example.com',
+        recipientEmail: mockUser.email,
+        subject: 'A very long subject line to test how the UI handles overflow and wrapping behavior in different screen sizes and contexts',
+        body: `<p>Just testing the subject line truncation. How does it look?</p>`,
+        snippet: 'Just testing the subject line truncation. How does it look?',
+        timestamp: fiveDaysAgo.toISOString(),
+        isRead: true,
+        folderId: SystemFolder.INBOX,
+        labelIds: ['label-4'], // Personal
+    },
+
+    // --- Conversation 15: Another archived item ---
+    {
+        id: 'email-19',
+        conversationId: 'conv-15',
+        senderName: 'Alex Johnson',
+        senderEmail: 'alex.j@example.com',
+        recipientEmail: mockUser.email,
+        subject: 'Re: Quick Question',
+        body: `<p>Nevermind, figured it out!</p>`,
+        snippet: 'Nevermind, figured it out!',
+        timestamp: fiveDaysAgo.toISOString(),
         isRead: true,
         folderId: SystemFolder.ARCHIVE,
         labelIds: [],

@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { Email, ActionType, Label, Conversation, User, AppSettings, Signature, AutoResponder, Rule, SystemLabel, Contact, ContactGroup, SystemFolder, UserFolder } from '../types';
 import { useToast } from './ToastContext';
-import { mockLabels, mockContacts, mockEmails, mockUser, mockUserFolders } from '../data/mockData';
+import { mockLabels, mockContacts, mockEmails, mockUser, mockUserFolders, mockContactGroups } from '../data/mockData';
 
 
 interface ComposeState {
@@ -169,7 +169,7 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   });
    const [contactGroups, setContactGroups] = useState<ContactGroup[]>(() => {
     const savedGroups = localStorage.getItem('contactGroups');
-    return savedGroups ? JSON.parse(savedGroups) : [];
+    return savedGroups ? JSON.parse(savedGroups) : mockContactGroups;
   });
   const [currentSelection, setCurrentSelection] = useState<{type: SelectionType, id: string}>({type: 'folder', id: SystemFolder.INBOX});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -211,26 +211,16 @@ export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => { localStorage.setItem('appSettings', JSON.stringify(appSettings)); }, [appSettings]);
   useEffect(() => { localStorage.setItem('contacts', JSON.stringify(contacts)); }, [contacts]);
   useEffect(() => { localStorage.setItem('contactGroups', JSON.stringify(contactGroups)); }, [contactGroups]);
-  useEffect(() => { localStorage.setItem('emails', JSON.stringify(emails)); }, [emails]);
-  useEffect(() => { localStorage.setItem('labels', JSON.stringify(labels)); }, [labels]);
-  useEffect(() => { localStorage.setItem('userFolders', JSON.stringify(userFolders)); }, [userFolders]);
-
-  const loadInitialData = useCallback(() => {
-      const savedEmails = localStorage.getItem('emails');
-      const savedLabels = localStorage.getItem('labels');
-      const savedUserFolders = localStorage.getItem('userFolders');
-      setEmails(savedEmails ? JSON.parse(savedEmails) : mockEmails);
-      setLabels(savedLabels ? JSON.parse(savedLabels) : mockLabels);
-      setUserFolders(savedUserFolders ? JSON.parse(savedUserFolders) : mockUserFolders);
-  }, []);
 
   const checkUserSession = useCallback(() => {
     setIsLoading(true);
     setUser(mockUser);
-    loadInitialData();
+    setEmails(mockEmails);
+    setLabels(mockLabels);
+    setUserFolders(mockUserFolders);
     setCurrentSelection({type: 'folder', id: SystemFolder.INBOX});
     setTimeout(() => setIsLoading(false), 500);
-  }, [loadInitialData]);
+  }, []);
   
   const login = useCallback((email: string, pass: string) => {
     setIsLoading(true);
